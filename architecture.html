@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HRMS Architecture Diagram</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; }
+  h1 { text-align: center; padding: 24px; font-size: 1.6rem; color: #a78bfa; letter-spacing: 0.05em; }
+  h2 { font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .diagram { display: flex; flex-direction: column; gap: 16px; padding: 0 24px 40px; max-width: 1300px; margin: 0 auto; }
+
+  /* ---- ROW LAYOUTS ---- */
+  .row { display: flex; gap: 16px; align-items: stretch; }
+  .col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* ---- LAYER BOXES ---- */
+  .layer {
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+  }
+  .layer-label {
+    position: absolute;
+    top: -10px;
+    left: 16px;
+    background: #0f1117;
+    padding: 0 6px;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #94a3b8;
+  }
+
+  /* color themes */
+  .blue   { background: #0d1b2e; border-color: #3b82f6; }
+  .purple { background: #160d2e; border-color: #8b5cf6; }
+  .green  { background: #0a1f12; border-color: #22c55e; }
+  .orange { background: #1f130a; border-color: #f97316; }
+  .pink   { background: #1f0a16; border-color: #ec4899; }
+  .teal   { background: #0a1f1f; border-color: #14b8a6; }
+  .yellow { background: #1a1800; border-color: #eab308; }
+  .gray   { background: #111827; border-color: #6b7280; }
+  .red    { background: #1f0a0a; border-color: #ef4444; }
+
+  /* ---- COMPONENT BOXES ---- */
+  .comp {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+  }
+  .comp strong { display: block; font-size: 0.82rem; margin-bottom: 4px; }
+  .comp ul { padding-left: 14px; }
+  .comp li { color: #94a3b8; line-height: 1.6; }
+  .comp .badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+    font-weight: 600;
+  }
+  .badge-blue   { background: #1d4ed8; color: #bfdbfe; }
+  .badge-green  { background: #15803d; color: #bbf7d0; }
+  .badge-purple { background: #6d28d9; color: #ddd6fe; }
+  .badge-orange { background: #c2410c; color: #fed7aa; }
+  .badge-pink   { background: #be185d; color: #fbcfe8; }
+  .badge-teal   { background: #0f766e; color: #99f6e4; }
+  .badge-yellow { background: #a16207; color: #fef08a; }
+
+  /* ---- TAGS (route, tool, etc) ---- */
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .tag {
+    font-size: 0.62rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.07);
+    color: #94a3b8;
+    font-family: monospace;
+  }
+
+  /* ---- ARROW LEGEND ---- */
+  .arrows { display: flex; gap: 20px; flex-wrap: wrap; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; }
+  .arr-item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #94a3b8; }
+  .arr-line { width: 32px; height: 2px; }
+
+  /* ---- FLOW DIAGRAM ---- */
+  .flow-box {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .flow-node {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+  .flow-arrow {
+    color: #64748b;
+    font-size: 1rem;
+    padding: 0 4px;
+  }
+  .flow-label { font-size: 0.68rem; color: #64748b; margin-top: 4px; }
+
+  /* ---- GRID ---- */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+
+  /* ---- CONNECTION BLOCK ---- */
+  .conn-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+  .conn-line {
+    flex: 1;
+    border-bottom: 1px dashed #334155;
+  }
+
+  /* connector arrows between layers */
+  .arrow-block {
+    display: flex;
+    justify-content: space-around;
+    padding: 4px 60px;
+  }
+  .down-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    font-size: 0.65rem;
+    color: #64748b;
+  }
+  .down-arrow .line { width: 1px; height: 20px; background: #334155; }
+  .down-arrow .head { font-size: 0.9rem; line-height: 1; }
+
+  /* full-width separator row */
+  .sep { height: 1px; background: linear-gradient(to right, transparent, #334155, transparent); margin: 4px 0; }
+
+  .title-block { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .title-block .icon { font-size: 1.4rem; }
+  .title-block h2 { margin-bottom: 0; }
+
+  /* ---- PORT BADGE ---- */
+  .port { font-size: 0.62rem; background: #1e293b; border: 1px solid #334155; border-radius: 4px; padding: 1px 5px; font-family: monospace; color: #7dd3fc; }
+
+  /* ---- WIDE LAYER ---- */
+  .stretch { flex: 1; }
+
+  .note { font-size: 0.68rem; color: #64748b; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>3SC HRMS — System Architecture</h1>
+
+<div class="diagram">
+
+  <!-- ===== LEGEND ===== -->
+  <div class="arrows">
+    <span style="font-size:0.75rem;font-weight:700;color:#94a3b8;margin-right:4px;">Connections:</span>
+    <div class="arr-item"><div class="arr-line" style="background:#3b82f6;"></div> HTTP/REST API</div>
+    <div class="arr-item"><div class="arr-line" style="background:#8b5cf6;"></div> WebSocket (Channels/Daphne)</div>
+    <div class="arr-item"><div class="arr-line" style="background:#f97316;"></div> Celery Task (RabbitMQ)</div>
+    <div class="arr-item"><div class="arr-line" style="background:#22c55e;"></div> DB Read/Write</div>
+    <div class="arr-item"><div class="arr-line" style="background:#eab308; border-top: 1px dashed #eab308; height:0;"></div> Cache Read/Write (Redis)</div>
+    <div class="arr-item"><div class="arr-line" style="background:#ec4899;"></div> LLM API Call</div>
+    <div class="arr-item"><div class="arr-line" style="background:#14b8a6;"></div> Vector Embedding / pgvector</div>
+  </div>
+
+  <!-- ===== ROW 1: CLIENTS ===== -->
+  <div class="layer blue">
+    <span class="layer-label">CLIENT LAYER</span>
+    <div class="title-block"><span class="icon">🖥️</span><h2 style="color:#60a5fa">Frontend Clients</h2></div>
+    <div class="grid-3">
+      <div class="comp">
+        <strong>React SPA <span class="port">:5173</span></strong>
+        <ul>
+          <li>TypeScript + React 18</li>
+          <li>Vite 5 build tool</li>
+          <li>Tailwind CSS styling</li>
+          <li>JWT Auth (access + refresh)</li>
+        </ul>
+        <div class="tags">
+          <span class="tag">main.tsx</span>
+          <span class="tag">App.tsx</span>
+        </div>
+      </div>
+      <div class="comp">
+        <strong>Role-Based Views</strong>
+        <ul>
+          <li>Employee Dashboard</li>
+          <li>Manager Leave Review</li>
+          <li>HR Analytics</li>
+          <li>CFO Payroll Views</li>
+          <li>Admin Console</li>
+        </ul>
+      </div>
+      <div class="comp">
+        <strong>AI Chat Interface</strong>
+        <ul>
+          <li>Session-based conversations</li>
+          <li>Real-time WebSocket updates</li>
+          <li>Leave application assistant</li>
+          <li>Policy Q&amp;A</li>
+          <li>NL query interface</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="arrow-block">
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#3b82f6">▼</div><span>HTTP/REST + JWT</span></div>
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#8b5cf6">▼</div><span>WebSocket</span></div>
+  </div>
+
+  <!-- ===== ROW 2: API GATEWAY / DJANGO ===== -->
+  <div class="layer purple">
+    <span class="layer-label">BACKEND / API LAYER</span>
+    <div class="title-block"><span class="icon">⚙️</span><h2 style="color:#c084fc">Django Application <span class="port">:8000 (Gunicorn)</span> + <span class="port">:8001 (Daphne ASGI)</span></h2></div>
+    <div class="grid-2" style="margin-bottom:12px;">
+      <div class="comp">
+        <strong>Authentication &amp; Security</strong>
+        <ul>
+          <li>SimpleJWT (access 60min, refresh 7d)</li>
+          <li>Custom email-based User model</li>
+          <li>Role permissions: Employee / Manager / HR / CFO / Admin</li>
+          <li>CORS &amp; DRF Throttling</li>
+        </ul>
+        <div class="tags"><span class="tag">/api/auth/</span></div>
+      </div>
+      <div class="comp">
+        <strong>API Documentation</strong>
+        <ul>
+          <li>drf-spectacular (OpenAPI 3)</li>
+          <li>Swagger UI auto-generated</li>
+        </ul>
+        <div class="tags"><span class="tag">/api/docs/</span><span class="tag">/api/schema/</span></div>
+      </div>
+    </div>
+    <div class="grid-5" style="margin-bottom:12px;">
+      <div class="comp">
+        <strong>Employees App</strong>
+        <ul><li>User profiles</li><li>Departments</li><li>Org hierarchy (self-ref)</li></ul>
+        <div class="tags"><span class="tag">/api/employees/</span></div>
+      </div>
+      <div class="comp">
+        <strong>Leaves App</strong>
+        <ul><li>Leave requests</li><li>Policies (CL/EL/SL)</li><li>Balances</li><li>Forecasting</li></ul>
+        <div class="tags"><span class="tag">/api/leaves/</span></div>
+      </div>
+      <div class="comp">
+        <strong>Attendance App</strong>
+        <ul><li>Daily records</li><li>Check-in/out</li><li>Reports</li></ul>
+        <div class="tags"><span class="tag">/api/attendance/</span></div>
+      </div>
+      <div class="comp">
+        <strong>Payroll App</strong>
+        <ul><li>Payroll slips</li><li>Salary computation</li></ul>
+        <div class="tags"><span class="tag">/api/payroll/</span></div>
+      </div>
+      <div class="comp">
+        <strong>Performance App</strong>
+        <ul><li>Goals &amp; OKRs</li><li>Review cycles</li><li>Appraisals</li></ul>
+        <div class="tags"><span class="tag">/api/performance/</span></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="comp">
+        <strong>AI Chat App <span class="badge badge-purple">AI</span></strong>
+        <ul>
+          <li>AgentRunView — full agent pipeline</li>
+          <li>AIQueryView — quick Q&amp;A</li>
+          <li>Session management (UUID-based)</li>
+          <li>ContextService — semantic + recent context</li>
+          <li>ChatSession / ChatMessage / ChatSummary storage</li>
+        </ul>
+        <div class="tags"><span class="tag">/api/ai/</span></div>
+      </div>
+      <div class="comp">
+        <strong>RAG App <span class="badge badge-teal">Vector</span></strong>
+        <ul>
+          <li>Document ingestion pipeline</li>
+          <li>Policy document versioning</li>
+          <li>pgvector cosine similarity search</li>
+          <li>Fallback: keyword search</li>
+        </ul>
+        <div class="tags"><span class="tag">/api/rag/</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- connector row -->
+  <div class="arrow-block">
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#f97316">▼</div><span>Celery Tasks</span></div>
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#a78bfa">▼</div><span>Agent Graph</span></div>
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#22c55e">▼</div><span>ORM / pgvector</span></div>
+  </div>
+
+  <!-- ===== ROW 3: AI ENGINE + ASYNC ===== -->
+  <div class="row">
+
+    <!-- AI ENGINE -->
+    <div class="layer pink stretch" style="flex:1.4;">
+      <span class="layer-label">AI ENGINE LAYER</span>
+      <div class="title-block"><span class="icon">🤖</span><h2 style="color:#f472b6">AI Agent Pipeline</h2></div>
+
+      <div class="comp" style="margin-bottom:10px;">
+        <strong>Intent Router <span class="badge badge-pink">agents/router.py</span></strong>
+        <ul>
+          <li>Embedding-based similarity matching</li>
+          <li>LLM-based fallback classification</li>
+        </ul>
+        <div class="tags">
+          <span class="tag">leave_application</span>
+          <span class="tag">burnout_check</span>
+          <span class="tag">review_summary</span>
+          <span class="tag">policy_query</span>
+          <span class="tag">nl_query</span>
+        </div>
+      </div>
+
+      <div class="comp" style="margin-bottom:10px;">
+        <strong>Agent Graph <span class="badge badge-pink">agents/graph.py</span></strong>
+        <div class="flow-box" style="margin-top:8px;">
+          <span class="flow-node">State Init</span><span class="flow-arrow">→</span>
+          <span class="flow-node">MCP Tools</span><span class="flow-arrow">→</span>
+          <span class="flow-node">SPOF/Conflict</span><span class="flow-arrow">→</span>
+          <span class="flow-node">RAG Retrieval</span><span class="flow-arrow">→</span>
+          <span class="flow-node">LLM Generate</span>
+        </div>
+        <p class="note">leave_application flow shown; other intents skip SPOF/Conflict nodes</p>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:10px;">
+        <div class="comp">
+          <strong>Agent Nodes</strong>
+          <ul>
+            <li>mcp_tools — HRMS tool calls</li>
+            <li>rag_retrieval — doc search</li>
+            <li>llm_generate — response gen</li>
+            <li>burnout — risk scoring</li>
+            <li>conflict — leave overlap</li>
+            <li>spof — coverage risk</li>
+            <li>nl_query — NL → SQL</li>
+          </ul>
+        </div>
+        <div class="comp">
+          <strong>MCP Tool Registry <span class="badge badge-pink">mcp/</span></strong>
+          <ul>
+            <li>leave_tools — apply, balance</li>
+            <li>employee_tools — profile data</li>
+            <li>attendance_tools — records</li>
+            <li>performance_tools — reviews</li>
+          </ul>
+          <p class="note">MCP: Model Context Protocol</p>
+        </div>
+      </div>
+
+      <div class="comp">
+        <strong>RAG Pipeline <span class="badge badge-teal">pgvector</span></strong>
+        <ul>
+          <li>Chunkers: SimpleChunker, MetadataChunker, SchemaChunker</li>
+          <li>Retrieval: cosine distance on 1536-dim embeddings</li>
+          <li>Policy doc versioning: PolicyDocument → PolicyVersion → PolicyChunk</li>
+          <li>General docs: RAGDocument with embeddings</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ASYNC WORKERS -->
+    <div class="layer orange stretch" style="flex:1;">
+      <span class="layer-label">ASYNC WORKER LAYER</span>
+      <div class="title-block"><span class="icon">⚡</span><h2 style="color:#fb923c">Celery Workers</h2></div>
+
+      <div class="comp" style="margin-bottom:10px;">
+        <strong>Worker 1 — High-Throughput</strong>
+        <div class="tags" style="margin-bottom:4px;"><span class="tag" style="color:#f97316;border-color:#f97316;">Queue: leave</span><span class="tag" style="color:#f97316;border-color:#f97316;">Queue: notifications</span></div>
+        <ul>
+          <li>process_leave_application (→ AI agent)</li>
+          <li>dispatch_notification</li>
+          <li>send_email / send_slack</li>
+        </ul>
+      </div>
+
+      <div class="comp" style="margin-bottom:10px;">
+        <strong>Worker 2 — Heavy AI</strong>
+        <div class="tags" style="margin-bottom:4px;"><span class="tag" style="color:#f97316;border-color:#f97316;">Queue: ai_heavy</span><span class="tag" style="color:#f97316;border-color:#f97316;">Queue: analytics</span></div>
+        <ul>
+          <li>burnout_scan (per employee)</li>
+          <li>review_summary generation</li>
+          <li>generate_leave_forecast</li>
+          <li>rag_policy_ingest</li>
+        </ul>
+      </div>
+
+      <div class="comp" style="margin-bottom:10px;">
+        <strong>Celery Beat — Scheduler</strong>
+        <ul>
+          <li>02:00 UTC — burnout_scan_all</li>
+          <li>03:00 UTC — leave_forecast_current_month</li>
+        </ul>
+      </div>
+
+      <div class="comp">
+        <strong>Chat Summarization</strong>
+        <ul>
+          <li>Triggered at 20+ new messages</li>
+          <li>summarize_chat_session → LLM summary</li>
+          <li>Stored with pgvector embedding</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- LLM PROVIDERS -->
+    <div class="layer red" style="flex:0.85;">
+      <span class="layer-label">LLM PROVIDER LAYER</span>
+      <div class="title-block"><span class="icon">🧠</span><h2 style="color:#f87171">LLM Providers</h2></div>
+      <div class="comp" style="margin-bottom:10px;">
+        <strong>Provider Factory <span class="badge badge-orange">core/llm/</span></strong>
+        <p class="note" style="margin-top:4px;">Pluggable via LLM_PROVIDER env var</p>
+      </div>
+      <div class="comp" style="margin-bottom:8px;">
+        <strong>Ollama <span class="badge badge-green">default</span></strong>
+        <ul>
+          <li>kimi-k2.5:cloud (chat)</li>
+          <li>nomic-embed-text (embeddings)</li>
+          <li>Self-hosted :11434</li>
+        </ul>
+      </div>
+      <div class="comp" style="margin-bottom:8px;">
+        <strong>OpenAI</strong>
+        <ul><li>gpt-4o</li><li>1536-dim embeddings</li></ul>
+      </div>
+      <div class="comp" style="margin-bottom:8px;">
+        <strong>Anthropic</strong>
+        <ul><li>claude-sonnet-4-6</li></ul>
+      </div>
+      <div class="comp">
+        <strong>Google Gemini</strong>
+        <ul><li>via GOOGLE_API_KEY</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="arrow-block">
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#22c55e">▼</div><span>Read / Write</span></div>
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#eab308">▼</div><span>Cache</span></div>
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#f97316">▼</div><span>Messages</span></div>
+    <div class="down-arrow"><div class="line"></div><div class="head" style="color:#8b5cf6">▼</div><span>Channels</span></div>
+  </div>
+
+  <!-- ===== ROW 4: INFRASTRUCTURE ===== -->
+  <div class="layer teal">
+    <span class="layer-label">INFRASTRUCTURE / DATA LAYER</span>
+    <div class="title-block"><span class="icon">🗄️</span><h2 style="color:#2dd4bf">Persistent Services</h2></div>
+    <div class="grid-4">
+
+      <div class="comp">
+        <strong>PostgreSQL <span class="badge badge-teal">+ pgvector</span> <span class="port">:5432</span></strong>
+        <ul>
+          <li>employees_user / employee</li>
+          <li>leaves_leaverequest <span class="badge badge-pink">AI flags</span></li>
+          <li>leaves_leavebalance</li>
+          <li>attendance_*</li>
+          <li>payroll_payrollslip</li>
+          <li>performance_goal / reviewcycle</li>
+          <li>ai_chatsession / chatmessage <span class="badge badge-teal">vec</span></li>
+          <li>ai_chatsummary <span class="badge badge-teal">vec</span></li>
+          <li>rag_ragdocument <span class="badge badge-teal">vec</span></li>
+          <li>rag_policychunk <span class="badge badge-teal">vec</span></li>
+        </ul>
+        <p class="note">Volume: data/postgres_v2/</p>
+      </div>
+
+      <div class="comp">
+        <strong>Redis <span class="port">:6379</span></strong>
+        <ul>
+          <li>DB 0 — Django Sessions &amp; Cache</li>
+          <li>DB 1 — Celery result backend</li>
+          <li>Channels layer (WebSocket state)</li>
+          <li>Burnout score cache (TTL 24h)</li>
+          <li>CacheKeys: burnout_score(emp_id)</li>
+        </ul>
+        <p class="note">Volume: data/redis/</p>
+      </div>
+
+      <div class="comp">
+        <strong>RabbitMQ <span class="port">:5672</span> <span class="port">:15672</span></strong>
+        <ul>
+          <li>leave — leave processing tasks</li>
+          <li>notifications — email/Slack dispatch</li>
+          <li>ai_heavy — burnout, review AI</li>
+          <li>analytics — forecasting</li>
+          <li>default — misc tasks</li>
+        </ul>
+        <p class="note">Volume: data/rabbitmq/<br>Mgmt UI: :15672</p>
+      </div>
+
+      <div class="comp">
+        <strong>Media Storage</strong>
+        <ul>
+          <li>User uploaded files</li>
+          <li>RAG source documents</li>
+          <li>Policy documents (PDFs)</li>
+          <li>Profile photos</li>
+        </ul>
+        <p class="note">Volume: data/media/</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== ROW 5: EXTERNAL ===== -->
+  <div class="layer yellow">
+    <span class="layer-label">EXTERNAL INTEGRATIONS</span>
+    <div class="title-block"><span class="icon">🌐</span><h2 style="color:#facc15">Third-Party Services</h2></div>
+    <div class="grid-4">
+      <div class="comp">
+        <strong>Gmail SMTP</strong>
+        <ul>
+          <li>Leave approval/rejection emails</li>
+          <li>Notification digest emails</li>
+          <li>smtp.gmail.com:587 (TLS)</li>
+        </ul>
+      </div>
+      <div class="comp">
+        <strong>Slack (optional)</strong>
+        <ul>
+          <li>SLACK_WEBHOOK_URL</li>
+          <li>Burn-out alerts</li>
+          <li>Leave status notifications</li>
+        </ul>
+      </div>
+      <div class="comp">
+        <strong>LLM APIs (cloud)</strong>
+        <ul>
+          <li>OpenAI API (OPENAI_API_KEY)</li>
+          <li>Anthropic API (ANTHROPIC_API_KEY)</li>
+          <li>Google AI (GOOGLE_API_KEY)</li>
+        </ul>
+      </div>
+      <div class="comp">
+        <strong>Ollama (self-hosted)</strong>
+        <ul>
+          <li>Local LLM inference</li>
+          <li>Embedding generation</li>
+          <li>No API key required</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== KEY FLOWS ===== -->
+  <div class="layer gray">
+    <span class="layer-label">KEY DATA FLOWS</span>
+    <div class="title-block"><span class="icon">🔄</span><h2 style="color:#9ca3af">Request Flows</h2></div>
+    <div class="grid-2">
+
+      <div class="comp">
+        <strong>Leave Application Flow</strong>
+        <div class="flow-box" style="margin:8px 0; gap:4px; flex-wrap:wrap;">
+          <span class="flow-node" style="border-color:#3b82f6">POST /api/leaves/</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">LeaveRequest Created</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#f97316">Django Signal</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#f97316">Celery: leave queue</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#ec4899">AI Agent Graph</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">SPOF Check</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Conflict Check</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#14b8a6">RAG Policy</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#ec4899">LLM Decision</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Update ai_context_card</span>
+        </div>
+      </div>
+
+      <div class="comp">
+        <strong>AI Chat Flow</strong>
+        <div class="flow-box" style="margin:8px 0; gap:4px; flex-wrap:wrap;">
+          <span class="flow-node" style="border-color:#3b82f6">POST /api/ai/query/</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Get/Create ChatSession</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#14b8a6">ContextService</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#ec4899">Intent Router</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">MCP Tools</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#14b8a6">RAG Retrieval</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#ec4899">LLM Generate</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Store + Return</span>
+        </div>
+      </div>
+
+      <div class="comp">
+        <strong>Daily Burnout Scan (2 AM)</strong>
+        <div class="flow-box" style="margin:8px 0; gap:4px; flex-wrap:wrap;">
+          <span class="flow-node" style="border-color:#f97316">Celery Beat</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">burnout_scan_all</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#f97316">ai_heavy queue</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#ec4899">burnout node</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#eab308">Redis Cache TTL=24h</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Manager Dashboard</span>
+        </div>
+      </div>
+
+      <div class="comp">
+        <strong>Policy RAG Ingestion</strong>
+        <div class="flow-box" style="margin:8px 0; gap:4px; flex-wrap:wrap;">
+          <span class="flow-node">CLI: ingest_rag_docs</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Chunkers (Simple/Meta/Schema)</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#ec4899">Embedding Provider</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node" style="border-color:#14b8a6">pgvector Store</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">PolicyChunk rows</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

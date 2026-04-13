@@ -1,0 +1,14 @@
+Performance Review Rubric
+
+Goals
+- Each goal has a title, description, status, and timestamps.
+- Status examples: OPEN, IN_PROGRESS, DONE, BLOCKED.
+
+Review Cycles
+- Review cycles cover a specific period (period_start to period_end).
+- Drafts should summarize goals, key outcomes, and risks in a neutral tone.
+
+Writing Guidance
+- Use objective facts from goals and attendance signals.
+- Avoid sensitive personal data.
+- Provide actionable feedback and next steps where possible.

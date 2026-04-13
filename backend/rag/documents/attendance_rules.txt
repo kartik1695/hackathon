@@ -1,0 +1,19 @@
+Attendance Rules
+
+Statuses
+- PRESENT
+- WFH
+- ABSENT
+
+Logging
+- Attendance is tracked per employee per date.
+- A check-in may be updated if already present; do not create duplicates for the same date.
+
+Anomalies
+- LATE: repeated late arrivals
+- MISSING: missing check-out or missing expected record
+- OTHER: other operational issues
+
+Burnout Guidance
+- Anomalies and repeated absences can be early indicators of burnout risk.
+- Escalate to manager/HR for support-oriented follow-up.

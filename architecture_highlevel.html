@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3SC HRMS — High-Level Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    background: #080c14;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    padding: 40px 24px 24px;
+  }
+  header h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #818cf8, #c084fc, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header p {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-top: 6px;
+  }
+
+  /* ── CANVAS ── */
+  .canvas {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ── ZONE (horizontal band) ── */
+  .zone {
+    position: relative;
+    border-left: 3px solid;
+    padding: 24px 24px 24px 28px;
+    margin-bottom: 0;
+  }
+  .zone-label {
+    position: absolute;
+    left: -3px;
+    top: 0;
+    transform: translateY(-50%);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 0 6px 6px 0;
+  }
+
+  /* zone colour themes */
+  .z-client   { border-color: #3b82f6; }
+  .z-client   .zone-label { background: #3b82f6; color: #fff; }
+
+  .z-api      { border-color: #818cf8; }
+  .z-api      .zone-label { background: #818cf8; color: #fff; }
+
+  .z-domain   { border-color: #22c55e; }
+  .z-domain   .zone-label { background: #22c55e; color: #000; }
+
+  .z-ai       { border-color: #f472b6; }
+  .z-ai       .zone-label { background: #f472b6; color: #000; }
+
+  .z-async    { border-color: #fb923c; }
+  .z-async    .zone-label { background: #fb923c; color: #000; }
+
+  .z-infra    { border-color: #14b8a6; }
+  .z-infra    .zone-label { background: #14b8a6; color: #000; }
+
+  .z-ext      { border-color: #eab308; }
+  .z-ext      .zone-label { background: #eab308; color: #000; }
+
+  /* ── CONNECTOR ARROW ── */
+  .connector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0 6px 28px;
+    font-size: 0.68rem;
+    color: #475569;
+  }
+  .connector .line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, #1e293b, #334155, #1e293b);
+  }
+  .connector .arrow { font-size: 1rem; }
+
+  /* ── ROW inside a zone ── */
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .row-center { justify-content: center; }
+
+  /* ── CARD ── */
+  .card {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 16px 18px;
+    flex: 1;
+    min-width: 180px;
+  }
+  .card h3 {
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .card ul li {
+    font-size: 0.73rem;
+    color: #94a3b8;
+    padding: 2px 0;
+    padding-left: 12px;
+    position: relative;
+  }
+  .card ul li::before {
+    content: '·';
+    position: absolute;
+    left: 2px;
+    color: #475569;
+  }
+  .card .sub {
+    font-size: 0.65rem;
+    color: #475569;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  /* card accent colours */
+  .c-blue   { border-color: rgba(59,130,246,0.35);  }
+  .c-blue   h3 { color: #60a5fa; }
+  .c-indigo { border-color: rgba(129,140,248,0.35); }
+  .c-indigo h3 { color: #a5b4fc; }
+  .c-green  { border-color: rgba(34,197,94,0.35);   }
+  .c-green  h3 { color: #4ade80; }
+  .c-teal   { border-color: rgba(20,184,166,0.35);  }
+  .c-teal   h3 { color: #2dd4bf; }
+  .c-pink   { border-color: rgba(244,114,182,0.35); }
+  .c-pink   h3 { color: #f472b6; }
+  .c-orange { border-color: rgba(251,146,60,0.35);  }
+  .c-orange h3 { color: #fb923c; }
+  .c-yellow { border-color: rgba(234,179,8,0.35);   }
+  .c-yellow h3 { color: #facc15; }
+  .c-purple { border-color: rgba(192,132,252,0.35); }
+  .c-purple h3 { color: #c084fc; }
+  .c-red    { border-color: rgba(248,113,113,0.35); }
+  .c-red    h3 { color: #f87171; }
+
+  /* ── WIDE CARD (full-width) ── */
+  .card-wide { flex: none; width: 100%; }
+
+  /* ── FLOW STRIP ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .flow-node {
+    font-size: 0.68rem;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .flow-arrow { color: #475569; font-size: 0.85rem; }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-block;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+  .b-green  { background: #14532d; color: #4ade80; }
+  .b-blue   { background: #1e3a5f; color: #60a5fa; }
+  .b-orange { background: #431407; color: #fb923c; }
+  .b-pink   { background: #500724; color: #f472b6; }
+  .b-teal   { background: #042f2e; color: #2dd4bf; }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 14px 28px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+    margin-bottom: 24px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── DOMAIN SECTION HEADER ── */
+  .domain-header {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .domain-col {
+    flex: 1;
+    min-width: 220px;
+  }
+  .domain-col .card { min-width: unset; flex: none; width: 100%; margin-bottom: 12px; }
+
+  /* ── AI PIPELINE ── */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(244,114,182,0.2);
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+  }
+  .pipeline-step {
+    flex: 1;
+    padding: 14px 12px;
+    text-align: center;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .pipeline-step:last-child { border-right: none; }
+  .pipeline-step .ps-num {
+    font-size: 0.6rem;
+    color: #475569;
+    margin-bottom: 4px;
+  }
+  .pipeline-step .ps-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #f472b6;
+    margin-bottom: 6px;
+  }
+  .pipeline-step .ps-desc {
+    font-size: 0.65rem;
+    color: #64748b;
+    line-height: 1.5;
+  }
+  .pipeline-step::after {
+    content: '→';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #334155;
+    font-size: 1rem;
+    z-index: 1;
+  }
+  .pipeline-step:last-child::after { display: none; }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>3SC HRMS — High-Level Architecture</h1>
+  <p>Employee Management · Leave Management · Attendance & WFO · AI Chat Assistant</p>
+</header>
+
+<div class="canvas">
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Client / UI</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#818cf8"></div>API Gateway (Django REST)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Domain Logic</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f472b6"></div>AI / LLM Layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>Async Workers (Celery)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#14b8a6"></div>Infrastructure (DB / Cache / Queue)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>External Services</div>
+  </div>
+
+  <!-- ═══ ZONE 1: CLIENT ═══ -->
+  <div class="zone z-client">
+    <span class="zone-label">Client Layer</span>
+    <div class="row">
+      <div class="card c-blue">
+        <h3>🖥️ React SPA</h3>
+        <ul>
+          <li>TypeScript + React 18 + Vite</li>
+          <li>Tailwind CSS</li>
+          <li>JWT Auth (access + refresh tokens)</li>
+          <li>Role-based views</li>
+        </ul>
+        <div class="sub">Port 5173 · VITE_API_URL → :8000</div>
+      </div>
+      <div class="card c-blue">
+        <h3>👤 Roles & Portals</h3>
+        <ul>
+          <li>Employee — self-service</li>
+          <li>Manager — team approvals</li>
+          <li>HR — policy & analytics</li>
+          <li>CFO — payroll view</li>
+          <li>Admin — full access</li>
+        </ul>
+      </div>
+      <div class="card c-blue">
+        <h3>💬 AI Chat Interface</h3>
+        <ul>
+          <li>Single chat for all actions</li>
+          <li>Leave application (multi-type)</li>
+          <li>Policy Q&amp;A</li>
+          <li>Attendance queries</li>
+          <li>NL employee lookups</li>
+        </ul>
+        <div class="sub">POST /api/ai/chat/</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="line"></div>
+    <span class="arrow">↕</span>
+    <span>HTTPS · JWT Bearer · REST JSON</span>
+    <div class="line"></div>
+  </div>
+
+  <!-- ═══ ZONE 2: API ═══ -->
+  <div class="zone z-api">
+    <span class="zone-label">API Gateway · Django REST Framework :8000</span>
+    <div class="row">
+
+      <div class="card c-indigo">
+        <h3>🔐 Auth</h3>
+        <ul>
+          <li>POST /api/auth/login/</li>
+          <li>POST /api/auth/refresh/</li>
+          <li>Email-based custom User</li>
+          <li>SimpleJWT tokens</li>
+        </ul>
+      </div>
+
+      <div class="card c-indigo">
+        <h3>👨‍💼 Employees</h3>
+        <ul>
+          <li>GET/POST /api/employees/</li>
+          <li>Profile, dept, org tree</li>
+          <li>Manager hierarchy</li>
+        </ul>
+      </div>
+
+      <div class="card c-indigo">
+        <h3>🏖️ Leaves</h3>
+        <ul>
+          <li>GET/POST /api/leaves/</li>
+          <li>Approve /api/leaves/:id/approve/</li>
+          <li>Simulate /api/leaves/simulate/</li>
+        </ul>
+      </div>
+
+      <div class="card c-indigo">
+        <h3>🕐 Attendance</h3>
+        <ul>
+          <li>GET/POST /api/attendance/</li>
+          <li>Check-in / Check-out</li>
+          <li>WFO / WFH tracking</li>
+          <li>Regularization requests</li>
+        </ul>
+      </div>
+
+      <div class="card c-indigo">
+        <h3>💰 Payroll</h3>
+        <ul>
+          <li>GET /api/payroll/</li>
+          <li>Payroll slips</li>
+        </ul>
+      </div>
+
+      <div class="card c-indigo">
+        <h3>🎯 Performance</h3>
+        <ul>
+          <li>GET/POST /api/performance/</li>
+          <li>Goals &amp; OKRs</li>
+          <li>Review cycles</li>
+        </ul>
+      </div>
+
+      <div class="card c-pink">
+        <h3>🤖 AI Chat</h3>
+        <ul>
+          <li>POST /api/ai/chat/</li>
+          <li>Single endpoint for all AI</li>
+          <li>Auto intent detection</li>
+          <li>Session continuity</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="line"></div>
+    <span class="arrow">↕</span>
+    <span>Service / Repository pattern · Django ORM</span>
+    <div class="line"></div>
+  </div>
+
+  <!-- ═══ ZONE 3: DOMAIN ═══ -->
+  <div class="zone z-domain">
+    <span class="zone-label">Domain Logic Layer</span>
+
+    <!-- Employee Domain -->
+    <div class="row" style="margin-bottom:16px;">
+      <div class="domain-col">
+        <div class="domain-header">👨‍💼 Employee Management</div>
+        <div class="card c-green">
+          <h3>Employee Service</h3>
+          <ul>
+            <li>Create / update employee profile</li>
+            <li>Department &amp; org hierarchy</li>
+            <li>Role assignment (RBAC)</li>
+            <li>Manager–reportee linking</li>
+            <li>Onboarding workflows</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Leave Domain -->
+      <div class="domain-col">
+        <div class="domain-header">🏖️ Leave Management</div>
+        <div class="card c-green">
+          <h3>Leave Service</h3>
+          <ul>
+            <li>Apply leave (CL / EL / SL)</li>
+            <li>Balance tracking per type</li>
+            <li>Manager approval workflow</li>
+            <li>Policy enforcement (max consecutive)</li>
+            <li>Year-end balance simulation</li>
+            <li>SPOF &amp; conflict detection</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Attendance Domain -->
+      <div class="domain-col">
+        <div class="domain-header">🕐 Attendance &amp; WFO</div>
+        <div class="card c-green">
+          <h3>Attendance Service</h3>
+          <ul>
+            <li>Daily check-in / check-out</li>
+            <li>WFO / WFH / Hybrid tagging</li>
+            <li>Regularization requests</li>
+            <li>Anomaly detection</li>
+            <li>30-day attendance window</li>
+            <li>Absent day tracking</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="domain-col" style="max-width:200px;">
+        <div class="domain-header">🔔 Notifications</div>
+        <div class="card c-teal">
+          <h3>Notification Service</h3>
+          <ul>
+            <li>In-app alerts</li>
+            <li>Leave status updates</li>
+            <li>Manager escalations</li>
+            <li>Email (Gmail SMTP)</li>
+            <li>Slack webhooks</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="connector">
+    <div class="line"></div>
+    <span class="arrow">↕</span>
+    <span>Agent graph · MCP tools · RAG retrieval · LLM calls</span>
+    <div class="line"></div>
+  </div>
+
+  <!-- ═══ ZONE 4: AI ═══ -->
+  <div class="zone z-ai">
+    <span class="zone-label">AI / LLM Layer</span>
+
+    <!-- Pipeline -->
+    <div class="section-title">Agent Pipeline — POST /api/ai/chat/</div>
+    <div class="pipeline" style="margin-bottom:16px;">
+      <div class="pipeline-step">
+        <div class="ps-num">1</div>
+        <div class="ps-title">Intent Router</div>
+        <div class="ps-desc">Embedding similarity + LLM classify<br>leave_collection · policy_query · nl_query · burnout · review</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">2</div>
+        <div class="ps-title">Leave Collector</div>
+        <div class="ps-desc">Multi-turn state machine<br>LLM parses types, extracts dates, classifies confirmation</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">3</div>
+        <div class="ps-title">MCP Tools</div>
+        <div class="ps-desc">get_leave_balance<br>get_employee_profile<br>apply_leave_batch<br>get_team_calendar</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">4</div>
+        <div class="ps-title">RAG Retrieval</div>
+        <div class="ps-desc">pgvector cosine search<br>Policy docs · leave rules · HR handbook</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">5</div>
+        <div class="ps-title">Policy Checker</div>
+        <div class="ps-desc">LLM evaluates violations<br>Hard block: max consecutive, balance<br>Soft warn: advisories</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">6</div>
+        <div class="ps-title">SPOF / Conflict</div>
+        <div class="ps-desc">Single-point-of-failure risk<br>Overlapping leave detection</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">7</div>
+        <div class="ps-title">LLM Generate</div>
+        <div class="ps-desc">Stage-aware prompt<br>Conversational reply to employee</div>
+      </div>
+    </div>
+
+    <!-- AI sub-features -->
+    <div class="row">
+      <div class="card c-pink">
+        <h3>💬 Multi-turn Leave Collection</h3>
+        <ul>
+          <li>Parse "2 SL, 3 CL, 1 PL" naturally</li>
+          <li>Ask dates + reason per type</li>
+          <li>Hard block on policy violations</li>
+          <li>Context switch mid-flow (policy Q&amp;A)</li>
+          <li>Batch apply on confirmation</li>
+        </ul>
+        <div class="sub">Stages: collecting → policy check → blocked/confirm → applying → done</div>
+      </div>
+      <div class="card c-pink">
+        <h3>📄 RAG Policy Engine</h3>
+        <ul>
+          <li>Leave policy documents</li>
+          <li>1536-dim pgvector embeddings</li>
+          <li>Versioned policy chunks</li>
+          <li>Cosine similarity retrieval</li>
+          <li>Keyword fallback</li>
+        </ul>
+        <div class="sub">Ingest via: manage.py ingest_rag_docs</div>
+      </div>
+      <div class="card c-pink">
+        <h3>🔥 Burnout Detection</h3>
+        <ul>
+          <li>Daily scan via Celery Beat @ 2 AM</li>
+          <li>30-day attendance window</li>
+          <li>Anomaly + absence scoring</li>
+          <li>Redis cache (TTL 24h)</li>
+          <li>Manager dashboard visibility</li>
+        </ul>
+      </div>
+      <div class="card c-pink">
+        <h3>🧠 LLM Providers</h3>
+        <ul>
+          <li>Ollama (default, self-hosted)</li>
+          <li>OpenAI GPT-4o</li>
+          <li>Anthropic Claude</li>
+          <li>Google Gemini</li>
+        </ul>
+        <div class="sub">Pluggable via LLM_PROVIDER env var</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="line"></div>
+    <span class="arrow">↕</span>
+    <span>RabbitMQ task queue · Celery workers</span>
+    <div class="line"></div>
+  </div>
+
+  <!-- ═══ ZONE 5: ASYNC ═══ -->
+  <div class="zone z-async">
+    <span class="zone-label">Async Worker Layer · Celery + RabbitMQ</span>
+    <div class="row">
+      <div class="card c-orange">
+        <h3>⚡ Worker 1 — Throughput</h3>
+        <ul>
+          <li>Queue: <code>leave</code> — AI analysis on new leave</li>
+          <li>Queue: <code>notifications</code> — email + Slack dispatch</li>
+        </ul>
+        <div class="flow" style="margin-top:8px;">
+          <span class="flow-node">Leave created</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Signal</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">AI Agent</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">SPOF + Conflict flags</span>
+        </div>
+      </div>
+      <div class="card c-orange">
+        <h3>🧠 Worker 2 — Heavy AI</h3>
+        <ul>
+          <li>Queue: <code>ai_heavy</code> — burnout scan, review summaries</li>
+          <li>Queue: <code>analytics</code> — leave forecast</li>
+        </ul>
+        <div class="flow" style="margin-top:8px;">
+          <span class="flow-node">Beat @ 2 AM</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Burnout scan</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Redis cache</span>
+        </div>
+      </div>
+      <div class="card c-orange">
+        <h3>📅 Celery Beat Schedules</h3>
+        <ul>
+          <li>02:00 UTC — burnout_scan_all</li>
+          <li>03:00 UTC — leave_forecast_current_month</li>
+          <li>On threshold — chat session summarization</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="line"></div>
+    <span class="arrow">↕</span>
+    <span>Django ORM · pgvector · Redis cache</span>
+    <div class="line"></div>
+  </div>
+
+  <!-- ═══ ZONE 6: INFRA ═══ -->
+  <div class="zone z-infra">
+    <span class="zone-label">Infrastructure Layer</span>
+    <div class="row">
+
+      <div class="card c-teal">
+        <h3>🗄️ PostgreSQL + pgvector</h3>
+        <ul>
+          <li>employees_user / employee</li>
+          <li>leaves_leaverequest <span class="badge b-pink">AI flags</span></li>
+          <li>leaves_leavebalance</li>
+          <li>attendance_record</li>
+          <li>payroll_payrollslip</li>
+          <li>performance_goal / reviewcycle</li>
+          <li>ai_chatmessage <span class="badge b-teal">vec</span></li>
+          <li>rag_policychunk <span class="badge b-teal">vec</span></li>
+        </ul>
+        <div class="sub">1536-dim embeddings · cosine similarity</div>
+      </div>
+
+      <div class="card c-teal">
+        <h3>⚡ Redis</h3>
+        <ul>
+          <li>DB 0 — Sessions &amp; Django cache</li>
+          <li>DB 1 — Celery result backend</li>
+          <li>WebSocket channel layer</li>
+          <li>Burnout scores (TTL 24h)</li>
+        </ul>
+        <div class="sub">redis://redis:6379</div>
+      </div>
+
+      <div class="card c-teal">
+        <h3>📨 RabbitMQ</h3>
+        <ul>
+          <li>leave queue</li>
+          <li>notifications queue</li>
+          <li>ai_heavy queue</li>
+          <li>analytics queue</li>
+          <li>default queue</li>
+        </ul>
+        <div class="sub">amqp://rabbitmq:5672 · Mgmt :15672</div>
+      </div>
+
+      <div class="card c-teal">
+        <h3>🌐 Servers</h3>
+        <ul>
+          <li>Gunicorn :8000 (4 workers)</li>
+          <li>Daphne :8001 (WebSocket ASGI)</li>
+          <li>Django Channels (real-time)</li>
+          <li>WhiteNoise (static files)</li>
+        </ul>
+        <div class="sub">Docker Compose orchestrated</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="line"></div>
+    <span class="arrow">↕</span>
+    <span>SMTP · Webhook · LLM API calls</span>
+    <div class="line"></div>
+  </div>
+
+  <!-- ═══ ZONE 7: EXTERNAL ═══ -->
+  <div class="zone z-ext">
+    <span class="zone-label">External Services</span>
+    <div class="row row-center">
+      <div class="card c-yellow" style="max-width:220px;">
+        <h3>📧 Gmail SMTP</h3>
+        <ul>
+          <li>Leave approval emails</li>
+          <li>Notification digests</li>
+          <li>smtp.gmail.com:587</li>
+        </ul>
+      </div>
+      <div class="card c-yellow" style="max-width:220px;">
+        <h3>💬 Slack</h3>
+        <ul>
+          <li>Burnout alerts</li>
+          <li>Leave status updates</li>
+          <li>Webhook (optional)</li>
+        </ul>
+      </div>
+      <div class="card c-yellow" style="max-width:220px;">
+        <h3>🤖 Cloud LLMs</h3>
+        <ul>
+          <li>OpenAI (GPT-4o)</li>
+          <li>Anthropic (Claude)</li>
+          <li>Google (Gemini)</li>
+        </ul>
+      </div>
+      <div class="card c-yellow" style="max-width:220px;">
+        <h3>🖥️ Ollama (Local)</h3>
+        <ul>
+          <li>Self-hosted LLM</li>
+          <li>kimi-k2.5:cloud</li>
+          <li>nomic-embed-text</li>
+          <li>No API key needed</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

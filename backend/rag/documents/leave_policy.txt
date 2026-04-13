@@ -1,0 +1,19 @@
+Leave Policy
+
+Leave Types
+- CL: Casual Leave
+- EL: Earned Leave
+- SL: Sick Leave
+
+Application Rules
+- Provide from_date, to_date, and days_count.
+- Leave must not overlap with any existing pending or approved leave.
+- Leave balance must be sufficient for the requested leave type.
+
+Approval Rules
+- Manager approves/rejects.
+- If coverage risk is high (SPOF / critical team period), manager should request an alternate plan before approval.
+
+Conflict Rules
+- Overlapping requests are conflicts.
+- If conflicts are detected, the request should be flagged for review.

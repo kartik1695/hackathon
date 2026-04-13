@@ -1,0 +1,15 @@
+.env
+.env.local
+data/
+__pycache__/
+*.py[cod]
+*.sqlite3
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+.DS_Store
+backend/staticfiles/
+backend/media/
+frontend/node_modules/
+frontend/dist/

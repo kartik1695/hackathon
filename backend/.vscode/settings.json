@@ -1,0 +1,5 @@
+{
+  "python.defaultInterpreterPath": "/Users/kartik.keswani/.venvs/hackathon-backend/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true
+}

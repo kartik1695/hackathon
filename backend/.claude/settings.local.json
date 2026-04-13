@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/kartik.keswani/Library/CloudStorage/OneDrive-SSSupplyChainSolutionsPLtd/Desktop/trae_3sc_hackathon/hackathon/backend/.venv/bin/python:*)",
+      "Bash(osascript -e 'tell application \"System Events\" to keystroke \"p\" using {command down, shift down}')",
+      "Bash(osascript -e 'tell application \"System Events\" to keystroke \"Developer: Reload Window\"')",
+      "Bash(mkdir -p ~/.venvs)",
+      "Bash(ln -sfn \"/Users/kartik.keswani/Library/CloudStorage/OneDrive-SSSupplyChainSolutionsPLtd/Desktop/trae_3sc_hackathon/hackathon/backend/.venv\" ~/.venvs/hackathon-backend)",
+      "Read(//Users/kartik.keswani/.venvs/hackathon-backend/bin/**)",
+      "Bash(~/.venvs/hackathon-backend/bin/python:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}

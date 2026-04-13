@@ -1,0 +1,13 @@
+Employee Handbook (Extract)
+
+General Conduct
+- Be respectful and professional.
+- Communicate early when you anticipate delays or absences.
+
+Time Off
+- Use the leave system to request planned time off.
+- For sick leave, notify your manager as soon as practical.
+
+Manager Support
+- Managers should ensure team coverage and prevent single points of failure.
+- When burnout signals are present, prioritize supportive interventions.

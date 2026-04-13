@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PGPASSWORD=hrms_secret psql:*)",
+      "Bash(curl -s https://3scsolution.keka.com/k/default/api/employee/127447/profile/profileheader -H 'authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjFBRjQzNjk5RUE0NDlDNkNCRUU3NDZFMjhDODM5NUIyMEE0MUNFMTgiLCJ4NXQiOiJHdlEybWVwRW5HeS01MGJpaklPVnNncEJ6aGciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FwcC5rZWthLmNvbSIsIm5iZiI6MTc3NjA2NzcyOCwiaWF0IjoxNzc2MDY3NzI4LCJleHAiOjE3NzYxNTQxMjgsImF1ZCI6WyJrZWthaHIuYXBpIiwiaGlyby5hcGkiLCJodHRwczovL2FwcC5rZWthLmNvbS9yZXNvdXJjZXMiXSwic2NvcGUiOlsib3BlbmlkIiwia2VrYWhyLmFwaSIsImhpcm8uYXBpIiwib2ZmbGluZV9hY2Nlc3MiXSwiYW1yIjpbInB3ZCJdLCJjbGllbnRfaWQiOiI5ODdjYzk3MS1mYzIyLTQ0NTQtOTlmOS0xNmMwNzhmYTdmZjYiLCJzdWIiOiI2NmEzZWIwZi0yZTZhLTRiNDMtODI3YS1mMWVlMWQ4YzYxMjIiLCJhdXRoX3RpbWUiOjE3NzQ1ODU5NzMsImlkcCI6ImxvY2FsIiwidGVuYW50X2lkIjoiNmYyNTVjZDEtYjk0ZC00YTJlLWEzMGMtNmM3NWFjZWQ4ZjNhIiwidGVuYW50aWQiOiI2ZjI1NWNkMS1iOTRkLTRhMmUtYTMwYy02Yzc1YWNlZDhmM2EiLCJzdWJkb21haW4iOiIzc2Nzb2x1dGlvbi5rZWthLmNvbSIsInVzZXJfaWQiOiI5OWM2MWMwOC1kZWMxLTQ2ZmQtYmJmNi1hZTAxMTc5ZTA2MzYiLCJ1c2VyX2lkZW50aWZpZXIiOiI5OWM2MWMwOC1kZWMxLTQ2ZmQtYmJmNi1hZTAxMTc5ZTA2MzYiLCJ1c2VybmFtZSI6ImthcnRpay5rZXN3YW5pQDNzY3NvbHV0aW9uLmNvbSIsImVtYWlsIjoia2FydGlrLmtlc3dhbmlAM3Njc29sdXRpb24uY29tIiwiYXV0aGVudGljYXRpb25fdHlwZSI6IjUiLCJkaWFsX2NvZGUiOiI5MSIsInNpZCI6IkE5RUFBNzhEQjU5MUM3MjJDNzQyN0I1MDU1QkJEMjIwIiwianRpIjoiMEQ0OUNGOTRDRDYyNEEzMkMzNDMwNTJCRjQ0MTk5NzIifQ.Moy7nOyhTqZcpdZIu2qjTIKGpv7p-c-wCRRPdDLGnkubINdDoe16RyrLtJ3VABF0q_yBXsLVzeWLjvkclMuVpuHH6MU0sAsdbV0FIWN_IIXuAvq-ezL1_Op2YqOmsmPqcDVdLMnA-la0e-h9yeLaTQbA0uh4hzwJdZwGeLjWu9296ufrswTV63-AqqEqgwIl3xt2tQVPzxnCAzM3KExTV4QHGgB_6sDFoGniIsPZyfqZkE1lJN0SLoyaduQotMm5z1FZSCILw66I9I9DYSJCLmd9IxT_XuJx0g8ss_Z2goL1rHVz2jv4E9sVFYbtvPO2MerT_ysnT2liPdyAfmiCfw' -H 'accept: application/json')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:9090/api/auth/token/ -X POST -H 'Content-Type: application/json' -d '{\"email\":\"kartik.keswani@3scsolution.com\",\"password\":\"Hrms@3sc2025!\"}')",
+      "Bash(python3:*)",
+      "Bash(docker compose:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
