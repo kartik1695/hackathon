@@ -258,3 +258,11 @@ Local dev (`.env.local`): change hosts to `localhost`, set `DJANGO_SETTINGS_MODU
 - Homebrew RabbitMQ on `localhost:5672` conflicts with Docker's — run `brew services stop rabbitmq` for local dev.
 - Router was 10.4s because embed ran on every request — move keyword matching before embed calls.
 - All Redis keys via `CacheKeys.*`. Debug memory logs use ANSI green `\033[32m` with `[MEMORY]` prefix.
+
+### Celery Task Discovery Bug
+- **Failed:** `app.autodiscover_tasks()` with no args only scans `INSTALLED_APPS` for `tasks.py` files. The `tasks/` top-level package is not in `INSTALLED_APPS` → workers started with 0 registered tasks → every leave/notification/burnout task was silently discarded by RabbitMQ. No crash, no 500 — quiet data loss for 25 hours.
+- **Fixed:** Use `app.conf.imports` in `config/celery.py` to explicitly list all task modules. `autodiscover_tasks()` still called after for any app-level tasks.
+
+### Personalised LLM Responses (user_profile injection)
+- **Failed:** System prompt was generic — LLM had no idea who it was talking to, producing impersonal responses.
+- **Fixed:** `ChatService._build_agent_state()` builds a `user_profile` dict from the authenticated employee (name, first_name, role, title, department, manager_name, employee_id). Injected into both the system prompt and the `[CONTEXT]` blob. `_get_system_prompt()` generates a personalised identity line: *"You are talking to Kartik (Senior Engineering Manager) in the Technology department — their manager is Rahul Shah."* LLM addresses user by first name naturally, adjusts tone by role (manager = crisp/executive, employee = warm/guided).

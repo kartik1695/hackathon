@@ -182,6 +182,25 @@ class ChatService:
         # Final history: older DB messages first, then Redis recent turns
         merged_history = db_messages + (redis_history or [])
 
+        # Build a lightweight profile snapshot so the LLM can personalise every response.
+        try:
+            manager_name = employee.manager.user.name if employee.manager_id else None
+        except Exception:
+            manager_name = None
+        try:
+            dept_name = employee.department.name if employee.department_id else None
+        except Exception:
+            dept_name = None
+        user_profile = {
+            "name":          getattr(user, "name", None) or "",
+            "first_name":    (getattr(user, "name", None) or "").split()[0] if getattr(user, "name", None) else "",
+            "employee_id":   employee.employee_id,
+            "role":          employee.role,
+            "title":         employee.title or "",
+            "department":    dept_name or "",
+            "manager_name":  manager_name or "",
+        }
+
         return {
             # ── routing ────────────────────────────────────────────────────────
             "intent": "",  # router node derives this from the message
@@ -190,6 +209,7 @@ class ChatService:
             "employee_id":    employee_id,
             "requester_id":   user.id,
             "requester_role": employee.role,
+            "user_profile":   user_profile,
 
             # ── current user message + leave-collection continuity ─────────────
             "input_data": {

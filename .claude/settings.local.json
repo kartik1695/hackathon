@@ -20,7 +20,18 @@
       "Bash(curl:*)",
       "Bash(nc -zv 127.0.0.1 5672)",
       "Bash(nc -zv 0.0.0.0 5672)",
-      "Bash(brew services:*)"
+      "Bash(brew services:*)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.local python manage.py migrate --run-syncdb)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.local python3 manage.py migrate)",
+      "Bash(docker-compose logs:*)",
+      "Bash(npm install:*)",
+      "Bash(npm list:*)",
+      "Bash(npm run:*)",
+      "Bash(pkill -f \"vite --host\")",
+      "Bash(grep \"CORS\" /Users/kartik.keswani/Library/CloudStorage/OneDrive-SSSupplyChainSolutionsPLtd/Desktop/trae_3sc_hackathon/hackathon/backend/.env*)",
+      "Bash(grep \"DJANGO_SETTINGS_MODULE\\\\|CORS\" /Users/kartik.keswani/Library/CloudStorage/OneDrive-SSSupplyChainSolutionsPLtd/Desktop/trae_3sc_hackathon/hackathon/backend/*.env)",
+      "Bash(/Users/kartik.keswani/Library/CloudStorage/OneDrive-SSSupplyChainSolutionsPLtd/Desktop/trae_3sc_hackathon/hackathon/backend/.venv/bin/python3 -c ':*)",
+      "Bash(grep -n \"@app.task\\\\|def process_leave\\\\|def dispatch_notification\\\\|def accrue\\\\|def burnout\\\\|def generate_leave\\\\|def extract_turn\" /Users/kartik.keswani/Library/CloudStorage/OneDrive-SSSupplyChainSolutionsPLtd/Desktop/trae_3sc_hackathon/hackathon/backend/tasks/*.py)"
     ]
   }
 }

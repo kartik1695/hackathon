@@ -1,10 +1,27 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import LoginPage from "./LoginPage";
+import ChatPage from "./ChatPage";
+import { isLoggedIn } from "./auth";
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  return isLoggedIn() ? <>{children}</> : <Navigate to="/" replace />;
+}
+
 export default function App() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold">HRMS-AI</h1>
-        <p className="mt-2 text-sm text-slate-600">Frontend scaffold ready.</p>
-      </div>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route
+          path="/chat"
+          element={
+            <RequireAuth>
+              <ChatPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

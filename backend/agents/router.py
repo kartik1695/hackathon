@@ -64,6 +64,14 @@ def route(state: AgentState) -> str:
 
     # ── Fast keyword routing — runs before embeddings to avoid slow embed calls ──
 
+    # Policy questions: must check BEFORE leave-type keywords to avoid misrouting
+    # "how many days of sick leave" has "sick leave" but it's a policy question
+    _policy_question_prefixes = ("how many", "how much leave", "what is the", "what are the",
+                                 "tell me about the", "explain the", "what leave")
+    if any(q.startswith(p) for p in _policy_question_prefixes):
+        if any(k in q for k in ("leave", "policy", "days", "balance", "entitlement", "quota", "allowance")):
+            return "policy_query"
+
     # Multi-leave collection: only when the query explicitly asks for 2+ types together
     _explicit_multi = (
         "multiple leave", "sick and casual", "sl and cl", "cl and sl", "cl and pl",
@@ -77,10 +85,19 @@ def route(state: AgentState) -> str:
     if (_type_count >= 2 or any(k in q for k in _explicit_multi)) and any(k in q for k in ("apply", "request", "want", "need", "take")):
         return "leave_collection"
 
+    # ── Comp Off — must run BEFORE single-apply (shares "apply"/"request" keywords) ───────────
+    if any(k in q for k in ("approve comp off", "approve comp-off", "reject comp off", "grant comp off")):
+        return "comp_off_approve"
+    if any(k in q for k in ("comp off", "comp-off", "compensatory off", "compensatory leave",
+                            "worked on sunday", "worked on holiday", "worked on weekend",
+                            "claim comp", "request comp off", "comp off request",
+                            "apply comp off", "need comp off")):
+        return "comp_off_request"
+
     # Single-leave application — includes typed abbreviations with dates/apply keywords
     _single_apply_kws = (
         "apply leave", "apply for leave", "leave from", "leave to",
-        "leave days", "request leave", "take leave",
+        "request leave", "take leave",
         "half day", "half-day", "am leave", "pm leave",
         "lop", "loss of pay",
         # Abbreviation + action: "apply cl", "take sl", "request pl", etc.
@@ -103,16 +120,10 @@ def route(state: AgentState) -> str:
     if any(k in q for k in ("cancel leave", "cancel my leave", "withdraw leave", "cancel the leave", "applied by mistake")):
         return "cancel_leave"
 
-    # ── Comp Off ──────────────────────────────────────────────────────────────
-    if any(k in q for k in ("comp off", "comp-off", "compensatory off", "compensatory leave", "worked on sunday",
-                            "worked on holiday", "worked on weekend", "claim comp", "request comp")):
-        return "comp_off_request"
-    if any(k in q for k in ("approve comp off", "approve comp-off", "reject comp off", "grant comp off")):
-        return "comp_off_approve"
-
     # ── Re-notify / reminders ──────────────────────────────────────────────────
     if any(k in q for k in ("remind manager", "re-notify", "renotify", "no action on my leave",
-                            "nudge manager", "still pending", "remind about leave")):
+                            "nudge manager", "still pending", "remind about leave",
+                            "remind my manager", "no response on leave", "follow up on leave")):
         return "renotify_manager"
 
     # ── Leave status / pending approvals ─────────────────────────────────────
@@ -127,7 +138,9 @@ def route(state: AgentState) -> str:
         return "burnout_check"
     if any(k in q for k in ("review", "performance review", "appraisal", "360", "feedback", "rating", "goal")):
         return "review_summary"
-    if any(k in q for k in ("policy", "leave policy", "security policy", "handbook", "rules", "guidelines", "entitlement")):
+    if any(k in q for k in ("policy", "leave policy", "security policy", "handbook", "rules", "guidelines", "entitlement",
+                            "how many leave", "how many days", "leave quota", "annual leave", "yearly leave",
+                            "maximum leave", "how much leave")):
         return "policy_query"
     _emp_kws = (
         "who is my manager", "manager's manager", "skip level", "my direct reports",

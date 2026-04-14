@@ -85,9 +85,18 @@ class ChatMemoryCache:
         tools_key = CacheKeys.chat_tool_results(session_id)
         try:
             existing = self._cache.get(tools_key) or []
+            # Never pin write-action tools or frequently-changing read tools.
+            # Write tools must be re-called; history/balance changes every turn.
+            _NEVER_PIN = {
+                "create_leave_request", "apply_leave_batch",
+                "approve_leave_request", "reject_leave_request",
+                "cancel_leave_request", "request_comp_off",
+                "approve_comp_off", "reject_comp_off", "renotify_manager",
+                "get_leave_history", "get_leave_balance", "get_pending_approvals",
+            }
             raw_compact = {
                 k: v for k, v in tool_results.items()
-                if isinstance(v, dict) and "error" not in v
+                if isinstance(v, dict) and "error" not in v and k not in _NEVER_PIN
             }
             # Sanitise: convert date/datetime/Decimal etc. to JSON-safe types
             compact = _json.loads(_json.dumps(raw_compact, default=str))

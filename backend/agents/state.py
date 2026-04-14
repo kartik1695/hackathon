@@ -6,6 +6,7 @@ class AgentState(TypedDict):
     employee_id: int
     requester_id: int
     requester_role: str
+    user_profile: Optional[dict]   # name, role, title, department, manager_name, employee_id_str
     input_data: dict
     chat_session_id: Optional[str]
     chat_summary: Optional[str]

@@ -70,9 +70,43 @@ def _build_messages(state: AgentState, LLMMessage) -> list:
 def _get_system_prompt(state: AgentState) -> str:
     intent = state.get("intent") or "nl_query"
     chat_summary = state.get("chat_summary") or ""
+
+    # Build a personalised identity line for every response
+    profile = state.get("user_profile") or {}
+    name       = profile.get("first_name") or profile.get("name") or ""
+    role       = profile.get("role") or ""
+    title      = profile.get("title") or ""
+    dept       = profile.get("department") or ""
+    mgr        = profile.get("manager_name") or ""
+
+    role_label = {
+        "manager": "a Manager", "hr": "an HR team member",
+        "cfo": "the CFO", "admin": "an Admin",
+    }.get(role, "an Employee")
+
+    identity_parts = [f"You are talking to **{name}**" if name else ""]
+    if title:
+        identity_parts.append(f"({title})")
+    if dept:
+        identity_parts.append(f"in the {dept} department")
+    if mgr:
+        identity_parts.append(f"— their manager is {mgr}")
+    identity_line = " ".join(p for p in identity_parts if p).strip()
+
+    personalisation = (
+        f"{identity_line}. "
+        f"They are {role_label}. "
+        f"Address them by their first name ({name}) naturally in responses when it feels right — "
+        f"don't force it into every sentence, but use it to make responses feel personal and warm. "
+        f"Be concise, friendly, and professional."
+    ) if name else (
+        "Be concise, friendly, and professional."
+    )
+
     base = (
-        "You are an HRMS assistant. Use only the provided tool_results and retrieved_docs for "
-        "factual answers. Do not invent dates, balances, policies, emails, or approvals.\n"
+        f"You are an AI-powered HRMS assistant. {personalisation}\n\n"
+        "Use only the provided tool_results and retrieved_docs for factual answers. "
+        "Do not invent dates, balances, policies, emails, or approvals.\n"
         "If prior_turn_tool_results is present, it contains data fetched in earlier turns of "
         "this conversation — treat it as trusted context when answering follow-up questions."
     )
@@ -133,23 +167,34 @@ def _get_system_prompt(state: AgentState) -> str:
     elif intent == "leave_status":
         prompt = (
             "You are an HRMS assistant showing leave status to an employee.\n\n"
-            "Use tool_results.get_leave_history to list their leave requests. "
-            "Group by status (PENDING, APPROVED, REJECTED, CANCELLED). "
-            "Show a clean table: #ID | Type | From | To | Days | Status | Reason.\n"
-            "If tool_results.get_leave_balance is present, show their current balance as a summary at the top.\n"
-            "For PENDING leaves, proactively say: 'You can ask me to cancel this or re-notify your manager.'\n"
+            "CRITICAL RULES:\n"
+            "1. ONLY use tool_results.get_leave_history and tool_results.get_leave_balance.\n"
+            "   IGNORE any other tool_results keys (e.g. get_pending_approvals — that is for managers).\n"
+            "2. If tool_results.get_leave_history has 'error' → report the error.\n"
+            "3. If tool_results.get_leave_history.leave_history is an empty list → say '✅ You have no leave requests on record yet.'\n"
+            "4. Otherwise: show leave balance at the top, then a table of all leaves:\n"
+            "   Leave ID | Type | From | To | Days | Status | Reason | Applied On\n"
+            "   Group PENDING leaves first, then APPROVED, then CANCELLED/REJECTED.\n"
+            "   For any PENDING leaves: add a note 'Say \"cancel leave #<id>\" or \"re-notify manager for #<id>\"'\n"
+            "NEVER say 'I don't have access to real-time data' — the tool results are live data.\n"
+            "NEVER show a 'Pending Approvals' section — that is a manager-only view.\n"
             "Be concise — do not pad the response."
         )
     elif intent == "pending_approvals":
         prompt = (
             "You are an HRMS assistant showing a manager their actionable items.\n\n"
-            "Use tool_results.get_pending_approvals.\n"
-            "Show two sections:\n"
-            "1. **Pending Leave Requests** — table: #ID | Employee | Type | From | To | Days | Reason | Applied On | SPOF?\n"
-            "2. **Pending Comp Off Requests** — table: #ID | Employee | Worked On | Days | Reason\n"
-            "After the tables, tell the manager: 'You can approve or reject any of these by saying "
-            "\"approve leave #<id>\" or \"reject leave #<id> because <reason>\"'.\n"
-            "If nothing is pending, say so clearly."
+            "CRITICAL RULES:\n"
+            "1. If tool_results.get_pending_approvals has 'error' key with code 'FORBIDDEN' → say:\n"
+            "   'This feature is only available to managers. As an employee, you can check your own leave status by saying \"my leave requests\".'\n"
+            "   For other errors → say: 'Unable to fetch pending approvals: <error>'\n"
+            "2. If tool_results.get_pending_approvals.total_pending == 0 → say clearly: "
+            "   '✅ You have no pending leave or comp off requests to act on right now.'\n"
+            "3. If total_pending > 0 → show two sections:\n"
+            "   **Pending Leave Requests** — table: Leave ID | Employee | Type | From | To | Days | Reason | Applied On\n"
+            "   **Pending Comp Off Requests** — table: CO ID | Employee | Worked On | Days | Reason\n"
+            "   End with: 'Say \"approve leave #<id>\" or \"reject leave #<id> because <reason>\" to act.'\n"
+            "NEVER say you don't have access to real-time data — you have live tool results right now.\n"
+            "NEVER hallucinate leave IDs or employee names not in the tool results."
         )
     elif intent == "comp_off_request":
         prompt = (
@@ -323,6 +368,7 @@ def _build_human_context(state: AgentState) -> str:
         "intent": state.get("intent"),
         "employee_id": state.get("employee_id"),
         "requester_role": state.get("requester_role"),
+        "user_profile": state.get("user_profile") or {},
         "input_data": state.get("input_data") or {},
         "spof_flag": state.get("spof_flag"),
         "conflict_detected": state.get("conflict_detected"),

@@ -37,7 +37,7 @@
         "OLLAMA_MODEL": "gpt-oss:120b-cloud",
         "EMBEDDING_PROVIDER": "ollama",
         "OLLAMA_EMBED_MODEL": "nomic-embed-text",
-        "VITE_API_URL": "http://localhost:8000"
+        "VITE_API_URL": "http://localhost:8002"
       }
     }
   ]

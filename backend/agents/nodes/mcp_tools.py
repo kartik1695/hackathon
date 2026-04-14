@@ -699,7 +699,23 @@ def run(state: AgentState) -> AgentState:
         else:
             state = burnout_run(state)
 
-    tool_results: dict = state.get("tool_results") or {}
+    tool_results: dict = dict(state.get("tool_results") or {})
+
+    # Write-action tools must NEVER be served from pinned prior-turn cache.
+    # Always evict them so they are freshly called this turn.
+    _WRITE_TOOLS = {
+        "create_leave_request", "apply_leave_batch",
+        "approve_leave_request", "reject_leave_request",
+        "cancel_leave_request", "request_comp_off",
+        "approve_comp_off", "reject_comp_off", "renotify_manager",
+    }
+    for _wt in _WRITE_TOOLS:
+        tool_results.pop(_wt, None)
+
+    # Always fetch fresh history/balance — stale pinned versions show outdated state
+    _ALWAYS_FRESH = {"get_leave_history", "get_leave_balance", "get_pending_approvals"}
+    for _ft in _ALWAYS_FRESH:
+        tool_results.pop(_ft, None)
 
     # For multi-turn leave collection, tool selection depends on the current stage
     intent = state.get("intent", "nl_query")
