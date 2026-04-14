@@ -18,3 +18,15 @@ class CacheKeys:
     @staticmethod
     def cfo_weekly_report(date_str: str) -> str:
         return f"cfo_report:{date_str}"
+
+    @staticmethod
+    def chat_turns(session_id: str) -> str:
+        return f"chat:turns:{session_id}"
+
+    @staticmethod
+    def chat_tool_results(session_id: str) -> str:
+        return f"chat:tools:{session_id}"
+
+    @staticmethod
+    def chat_entity_log(session_id: str) -> str:
+        return f"chat:entities:{session_id}"

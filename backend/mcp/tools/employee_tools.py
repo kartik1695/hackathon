@@ -413,7 +413,9 @@ def get_org_tree(
     Answers: "show me the org chart under Alice", "who is under Bob?",
     "give me the full team structure for EMP010", "what does John's org look like?".
     """
-    err = ensure_role(requester_role, ["manager", "hr", "cfo", "admin"])
+    allow = _allow_personal_details()
+    allowed_roles = ["employee", "manager", "hr", "cfo", "admin"] if allow else ["manager", "hr", "cfo", "admin"]
+    err = ensure_role(requester_role, allowed_roles)
     if err:
         return err
 
@@ -452,8 +454,14 @@ def get_org_tree(
     tree["reports"] = _subtree(root.id, depth=3)
     tree["report_count"] = len(tree["reports"])
 
-    logger.info("MCP tool ok tool=get_org_tree root_pk=%s", employee_id)
-    return {"org_tree": tree}
+    logger.info(
+        "MCP tool ok tool=get_org_tree root_pk=%s requester_id=%s requester_role=%s allow_personal_details=%s",
+        employee_id,
+        requester_id,
+        requester_role,
+        allow,
+    )
+    return {"org_tree": tree, "depth": 3}
 
 
 # ---------------------------------------------------------------------------

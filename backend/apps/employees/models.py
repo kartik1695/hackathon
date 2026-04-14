@@ -54,6 +54,8 @@ class Department(models.Model):
     code = models.CharField(max_length=20, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    objects = models.Manager()
+
     class Meta:
         ordering = ["code"]
 
@@ -95,4 +97,4 @@ class Employee(models.Model):
         ordering = ["employee_id"]
 
     def __str__(self) -> str:
-        return f"{self.employee_id} - {self.user.get_full_name() or self.user.email}"
+        return f"{self.employee_id} - {self.user_id}"

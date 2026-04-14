@@ -13,7 +13,14 @@
       "Bash(git commit:*)",
       "Bash(ollama list:*)",
       "Bash(ollama pull:*)",
-      "Bash(wait)"
+      "Bash(wait)",
+      "Bash(curl -s -X POST http://localhost:8000/api/auth/login/ -H \"Content-Type: application/json\" -d '{\"email\":\"abhishek.nabar@3scsolution.com\",\"password\":\"Pass@1234\"}')",
+      "Bash(curl -s http://localhost:8000/api/)",
+      "Bash(.venv/bin/python -c ':*)",
+      "Bash(curl:*)",
+      "Bash(nc -zv 127.0.0.1 5672)",
+      "Bash(nc -zv 0.0.0.0 5672)",
+      "Bash(brew services:*)"
     ]
   }
 }

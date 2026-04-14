@@ -15,7 +15,8 @@ import logging
 
 from agents.graph import run_agent
 from apps.ai.context import ContextService
-from tasks.chat_tasks import summarize_chat_session
+from apps.ai.memory import ChatMemoryCache
+from tasks.chat_tasks import extract_turn_entities, summarize_chat_session
 
 logger = logging.getLogger("hrms")
 
@@ -23,8 +24,13 @@ logger = logging.getLogger("hrms")
 class ChatService:
     """Orchestrates a single chat turn for any requester role."""
 
-    def __init__(self, context_service: ContextService | None = None):
+    def __init__(
+        self,
+        context_service: ContextService | None = None,
+        memory_cache: ChatMemoryCache | None = None,
+    ):
         self._ctx = context_service or ContextService()
+        self._mem = memory_cache or ChatMemoryCache()
 
     # ──────────────────────────────────────────────────────────────────────────
     # Public API
@@ -56,23 +62,50 @@ class ChatService:
             The agent result dict (internal fields still present — view strips them).
         """
         session = self._ctx.get_or_create_session(user, employee_id, session_id=session_id)
+        session_id_str = str(session.id)
+
+        # Persist user message to DB
         self._ctx.add_user_message(session, message)
 
-        chat_context = self._ctx.build_context(session, query=message)
-        agent_state  = self._build_agent_state(
+        # Build context: Redis cache (fast) merged with DB summary (durable)
+        db_context    = self._ctx.build_context(session, query=message)
+        redis_history = self._mem.build_history_messages(session_id_str, last_n=8)
+        pinned_tools  = self._mem.get_pinned_tool_results(session_id_str)
+
+        _G, _B, _R = "\033[32m", "\033[1m", "\033[0m"
+        db_msgs = db_context.get("messages") or []
+        db_summary = db_context.get("summary") or ""
+        redis_history_dump = "\n".join(
+            f"    [{i+1}] {m.get('role','?').upper()}: {m.get('content','')}"
+            for i, m in enumerate(redis_history)
+        ) or "    (empty)"
+        logger.info(
+            f"{_G}{_B}[MEMORY] CONTEXT ASSEMBLED{_R}{_G}  session={session_id_str[:8]}\n"
+            f"  query           : {message}\n"
+            f"  redis_history   : {len(redis_history)} messages\n"
+            f"{redis_history_dump}\n"
+            f"  db_messages     : {len(db_msgs)} messages (semantic+recent from DB)\n"
+            f"  db_summary      : {'yes — ' + db_summary if db_summary else 'none'}\n"
+            f"  pinned_tools    : {list(pinned_tools.keys()) or 'none'}{_R}"
+        )
+
+        agent_state = self._build_agent_state(
             employee=employee,
             employee_id=employee_id,
             user=user,
             message=message,
             session=session,
-            chat_context=chat_context,
+            chat_context=db_context,
             collection_state=collection_state,
+            redis_history=redis_history,
+            pinned_tool_results=pinned_tools,
         )
 
         result = run_agent(agent_state)
         reply  = (result.get("llm_response") or result.get("manager_context") or "").strip()
 
         if reply:
+            # Persist assistant message to DB
             self._ctx.add_assistant_message(
                 session,
                 reply=reply,
@@ -80,14 +113,35 @@ class ChatService:
                 tool_snapshot=result.get("tool_results") or {},
                 retrieved_docs=result.get("retrieved_docs") or [],
             )
+            # Push completed turn to Redis memory cache (both query + reply + tool results)
+            self._mem.push_turn(
+                session_id_str,
+                user_query=message,
+                assistant_reply=reply,
+                intent=str(result.get("intent") or ""),
+                tool_results=result.get("tool_results") or {},
+            )
+
+        # Async: extract intent + entities from this turn for pronoun resolution in future turns
+        if reply:
+            try:
+                extract_turn_entities.delay(
+                    session_id_str,
+                    message,
+                    reply,
+                    str(result.get("intent") or ""),
+                    result.get("tool_results") or {},
+                )
+            except Exception:
+                logger.exception("Failed to queue extract_turn_entities for session %s", session_id_str)
 
         if self._ctx.should_summarize(session):
             try:
-                summarize_chat_session.delay(str(session.id))
+                summarize_chat_session.delay(session_id_str)
             except Exception:
-                logger.exception("Failed to queue summarize_chat_session for session %s", session.id)
+                logger.exception("Failed to queue summarize_chat_session for session %s", session_id_str)
 
-        result["_session_id"] = str(session.id)
+        result["_session_id"] = session_id_str
         return result
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -104,8 +158,30 @@ class ChatService:
         session,
         chat_context: dict,
         collection_state: dict,
+        redis_history: list[dict] | None = None,
+        pinned_tool_results: dict | None = None,
     ) -> dict:
-        """Construct the full LangGraph AgentState from the request + session context."""
+        """
+        Construct the full LangGraph AgentState from the request + session context.
+
+        chat_history is the merged view:
+          - redis_history: fast Redis cache of recent turns (structured, reliable)
+          - chat_context messages: DB-backed recent + semantic messages (fallback / older turns)
+        Deduplication: Redis turns are preferred; DB messages fill gaps for older context.
+
+        pinned_tool_results: tool data fetched in the last 2 turns, injected so the
+        LLM does not hallucinate facts it already looked up.
+        """
+        # Merge history: Redis turns are authoritative for recency;
+        # DB messages provide older semantic matches not in the Redis window.
+        redis_ids = {m.get("content", "") for m in (redis_history or [])}
+        db_messages = [
+            m for m in (chat_context.get("messages") or [])
+            if m.get("content", "") not in redis_ids
+        ]
+        # Final history: older DB messages first, then Redis recent turns
+        merged_history = db_messages + (redis_history or [])
+
         return {
             # ── routing ────────────────────────────────────────────────────────
             "intent": "",  # router node derives this from the message
@@ -125,13 +201,19 @@ class ChatService:
             },
 
             # ── session & conversation context ────────────────────────────────
-            "chat_session_id": str(session.id),
-            "chat_summary":    chat_context.get("summary") or "",
-            "chat_history":    chat_context.get("messages") or [],
+            "chat_session_id":    str(session.id),
+            "chat_summary":       chat_context.get("summary") or "",
+            "chat_history":       merged_history,
+
+            # ── pinned tool results from previous turns (Strategy D) ──────────
+            # Pre-seeded into tool_results so the MCP node can skip re-fetching;
+            # current turn's tools will overwrite these for the same keys.
+            # Also stored separately so llm_generate can label them as "prior turn".
+            "tool_results":           pinned_tool_results or {},
+            "_pinned_tool_results":   pinned_tool_results or {},
 
             # ── agent working fields (nodes populate these) ───────────────────
             "retrieved_docs":    [],
-            "tool_results":      {},
             "llm_response":      None,
             "spof_flag":         False,
             "conflict_detected": False,

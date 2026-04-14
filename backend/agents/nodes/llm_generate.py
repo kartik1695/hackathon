@@ -39,8 +39,12 @@ def run(state: AgentState) -> AgentState:
 
 def _build_messages(state: AgentState, LLMMessage) -> list:
     system = _get_system_prompt(state)
-    human = _build_human_context(state)
+    context_blob = _build_human_context(state)
+    current_query = ((state.get("input_data") or {}).get("query") or "").strip()
+
     messages = [LLMMessage(role="system", content=system)]
+
+    # Inject conversation history so pronouns/references resolve naturally
     history = state.get("chat_history") or []
     for m in history[-12:]:
         role = m.get("role")
@@ -50,7 +54,16 @@ def _build_messages(state: AgentState, LLMMessage) -> list:
         if not content:
             continue
         messages.append(LLMMessage(role=role, content=content))
-    messages.append(LLMMessage(role="user", content=human))
+
+    # Context blob (tool results, intent, flags) as a system-style note
+    messages.append(LLMMessage(role="user", content=f"[CONTEXT]\n{context_blob}"))
+    messages.append(LLMMessage(role="assistant", content="Understood. I have the context above."))
+
+    # Current user query as a plain natural-language message — pronouns resolve
+    # against the conversation history turns above, not the JSON blob
+    if current_query:
+        messages.append(LLMMessage(role="user", content=current_query))
+
     return messages
 
 
@@ -59,7 +72,9 @@ def _get_system_prompt(state: AgentState) -> str:
     chat_summary = state.get("chat_summary") or ""
     base = (
         "You are an HRMS assistant. Use only the provided tool_results and retrieved_docs for "
-        "factual answers. Do not invent dates, balances, policies, emails, or approvals."
+        "factual answers. Do not invent dates, balances, policies, emails, or approvals.\n"
+        "If prior_turn_tool_results is present, it contains data fetched in earlier turns of "
+        "this conversation — treat it as trusted context when answering follow-up questions."
     )
 
     if intent == "leave_collection":
@@ -184,6 +199,22 @@ def _leave_collection_prompt(state: AgentState) -> str:
 
 
 def _build_human_context(state: AgentState) -> str:
+    tool_results = state.get("tool_results") or {}
+
+    # Separate current-turn tools from pinned (prior-turn) tools so the LLM
+    # knows which data is fresh vs from a previous turn.
+    # Use _tools_called_this_turn (stamped by mcp_tools node) as the authoritative
+    # set of freshly-fetched tools — avoids stale pinned data overriding fresh results.
+    tools_called_this_turn = set(state.get("_tools_called_this_turn") or [])
+    pinned = state.get("_pinned_tool_results") or {}
+    if tools_called_this_turn:
+        current_tools = {k: v for k, v in tool_results.items() if k in tools_called_this_turn}
+        prior_tools   = {k: v for k, v in pinned.items() if k not in tools_called_this_turn}
+    else:
+        # Fallback: old key-exclusion logic
+        current_tools = {k: v for k, v in tool_results.items() if k not in pinned}
+        prior_tools   = {k: v for k, v in pinned.items() if k not in current_tools}
+
     payload: dict = {
         "intent": state.get("intent"),
         "employee_id": state.get("employee_id"),
@@ -194,9 +225,14 @@ def _build_human_context(state: AgentState) -> str:
         "conflict_summary": state.get("conflict_summary"),
         "burnout_score": state.get("burnout_score"),
         "burnout_signals": state.get("burnout_signals"),
-        "tool_results": state.get("tool_results") or {},
+        "tool_results": tool_results,
         "retrieved_docs": state.get("retrieved_docs") or [],
     }
+    # Include prior-turn pinned tool results as separate context key so LLM
+    # can reference facts fetched in previous turns without hallucinating.
+    if prior_tools:
+        payload["prior_turn_tool_results"] = prior_tools
+
     # Include collection state for leave_collection intent
     if state.get("intent") == "leave_collection":
         payload["leave_items"]       = state.get("leave_items") or []

@@ -103,8 +103,16 @@ def _self_referential_plan(query: str, state: AgentState, already_called: list[s
 
     # ── My org tree ──────────────────────────────────────────────────────────
     MY_ORG_TRIGGERS = (
-        "my org chart", "my org tree", "my org structure", "my full team",
-        "entire team under me", "all employees under me",
+        "my org chart",
+        "my org tree",
+        "my org structure",
+        "my full team",
+        "org chart",
+        "org tree",
+        "org structure",
+        "org hierarchy",
+        "entire team under me",
+        "all employees under me",
     )
     if any(t in q for t in MY_ORG_TRIGGERS):
         if "get_org_tree" not in already_called:
@@ -113,8 +121,66 @@ def _self_referential_plan(query: str, state: AgentState, already_called: list[s
     return None
 
 
+def _resolve_pronoun_employee_id(
+    query: str, tool_results: dict, state: "AgentState | None" = None
+) -> int | None:
+    """
+    Resolve a pronoun (him/her/his/their/he/she/they) to a DB employee id.
+
+    Resolution order:
+      1. Entity log (most recent turn's focus_employee_id) — most reliable
+      2. manager_chain level=2 then level=1 — handles "his team" after manager query
+      3. find_employee_by_name single result
+      4. get_direct_reports single result
+    """
+    PRONOUNS = ("him", "her", "his", "their", "he", "she", "they", "them")
+    ql = query.lower()
+    if not any(p in ql.split() for p in PRONOUNS):
+        return None
+
+    # 1. Entity log — check the most recent turns for a focused employee
+    if state is not None:
+        session_id = state.get("chat_session_id") or ""
+        if session_id:
+            try:
+                from apps.ai.memory import ChatMemoryCache
+                mem = ChatMemoryCache()
+                entity_log = mem.get_entity_log(session_id, last_n=5)
+                # Walk backwards — most recent first
+                for entry in reversed(entity_log):
+                    focus_id = entry.get("focus_employee_id")
+                    if focus_id:
+                        logger.info(
+                            "MCP pronoun resolved via entity_log id=%s from turn: %s",
+                            focus_id, entry.get("turn_query", "")[:60],
+                        )
+                        return int(focus_id)
+            except Exception:
+                logger.exception("Entity log pronoun resolution failed")
+
+    # 2: manager chain — prefer skip-level (level=2) for "his team" after manager query
+    chain_data = (tool_results.get("get_employee_manager_chain") or {}).get("manager_chain") or []
+    if chain_data:
+        chain_data_sorted = sorted(chain_data, key=lambda x: x.get("level", 0), reverse=True)
+        for entry in chain_data_sorted:
+            if entry.get("id"):
+                return int(entry["id"])
+
+    # 3: last name search result
+    name_results = (tool_results.get("find_employee_by_name") or {}).get("results") or []
+    if len(name_results) == 1 and name_results[0].get("id"):
+        return int(name_results[0]["id"])
+
+    # 4: first direct report (handles "what about him?" after a team listing)
+    reports = (tool_results.get("get_direct_reports") or {}).get("direct_reports") or []
+    if len(reports) == 1 and reports[0].get("id"):
+        return int(reports[0]["id"])
+
+    return None
+
+
 def _direct_reports_plan(
-    query: str, tool_results: dict, already_called: list[str]
+    query: str, tool_results: dict, already_called: list[str], state: "AgentState | None" = None
 ) -> dict | None:
     q = (query or "").strip()
     ql = q.lower()
@@ -128,6 +194,20 @@ def _direct_reports_plan(
         "people reporting to ",
         "people who report to ",
     )
+    # Pronoun query: "who else reports to him/her" — resolve from prior tool results
+    PRONOUNS = ("him", "her", "his", "their", "he", "she", "they", "them")
+    query_words = ql.split()
+    if any(p in query_words for p in PRONOUNS):
+        if "get_direct_reports" not in already_called:
+            resolved_id = _resolve_pronoun_employee_id(q, tool_results, state=state)
+            if resolved_id:
+                logger.info(
+                    "MCP planner pronoun-resolved tool=get_direct_reports employee_id=%s query=%s",
+                    resolved_id, q,
+                )
+                return {"tool_name": "get_direct_reports", "employee_id": resolved_id, "input_data": {}}
+        return None
+
     if not any(t in ql for t in triggers):
         return None
 
@@ -203,6 +283,22 @@ def _plan_next_tool_call(
     if not query:
         return None
 
+    # Fast-path: pronoun resolution before any LLM call
+    # Handles "who else reports to him/her", "what is his team", etc.
+    pronoun_id = _resolve_pronoun_employee_id(query, tool_results, state=state)
+    if pronoun_id and "get_direct_reports" not in already_called:
+        DIRECT_REPORT_TRIGGERS = (
+            "who else reports", "who reports to him", "who reports to her",
+            "his team", "her team", "their team", "his direct", "her direct",
+            "reports to him", "reports to her", "reporting to him", "reporting to her",
+        )
+        if any(t in query.lower() for t in DIRECT_REPORT_TRIGGERS):
+            logger.info(
+                "MCP planner pronoun-fast-path tool=get_direct_reports employee_id=%s query=%s",
+                pronoun_id, query,
+            )
+            return {"tool_name": "get_direct_reports", "employee_id": pronoun_id, "input_data": {}}
+
     self_plan = _self_referential_plan(query, state, already_called)
     if self_plan:
         logger.info(
@@ -213,7 +309,7 @@ def _plan_next_tool_call(
         )
         return self_plan
 
-    direct_reports_plan = _direct_reports_plan(query, tool_results, already_called)
+    direct_reports_plan = _direct_reports_plan(query, tool_results, already_called, state=state)
     if direct_reports_plan:
         logger.info(
             "MCP planner direct-reports tool=%s requester=%s query=%s",
@@ -264,6 +360,18 @@ def _plan_next_tool_call(
         "3e. 'my profile' / 'my role' / 'my department' / 'who am I':\n"
         "    → get_my_profile with employee_id = requester_employee_id\n"
         "CRITICAL: Never call find_employee_by_name for self-referential ('my X') queries.\n"
+        "\n"
+        "--- PRONOUN RESOLUTION — apply BEFORE other-employee rules ---\n"
+        "0. If the query uses a pronoun ('him', 'her', 'them', 'his', 'their', 'he', 'she', 'they')\n"
+        "   instead of a name, resolve it from tool_results in this order:\n"
+        "   a. tool_results.get_employee_manager_chain.manager_chain — look for the most relevant person.\n"
+        "      level=1 is the requester's immediate manager, level=2 is the skip-level manager, etc.\n"
+        "      Use the id field of the resolved person as employee_id.\n"
+        "   b. tool_results.find_employee_by_name.results[0] — if a name search was just done.\n"
+        "   c. tool_results.get_direct_reports.direct_reports[0] — if a team was just fetched.\n"
+        "   If you can resolve the pronoun, proceed with the correct employee_id — do NOT stop.\n"
+        "   Example: query='who else reports to him', tool_results has manager_chain level=2 id=489\n"
+        "   → call get_direct_reports with employee_id=489\n"
         "\n"
         "--- OTHER-EMPLOYEE RULES ---\n"
         "4. Query mentions a person's name (not 'my'): call find_employee_by_name first with input_data.query = extracted name.\n"
@@ -473,5 +581,18 @@ def run(state: AgentState) -> AgentState:
         state["collection_stage"] = "done"
 
     state["tool_results"] = tool_results
+
+    # Track which tools were actually called this turn so llm_generate can split
+    # current vs prior-turn tool results correctly.
+    all_called_this_turn: list[str] = []
+    if intent in ("nl_query", "employee_query"):
+        try:
+            all_called_this_turn = already_called  # type: ignore[name-defined]
+        except NameError:
+            all_called_this_turn = []
+    else:
+        all_called_this_turn = [s["tool_name"] for s in call_specs if s.get("tool_name")]
+    state["_tools_called_this_turn"] = all_called_this_turn
+
     logger.info("MCP node complete intent=%s tools=%s", state.get("intent"), list(tool_results.keys()))
     return state
