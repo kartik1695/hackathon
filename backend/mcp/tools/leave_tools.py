@@ -429,7 +429,8 @@ def renotify_manager(employee_id: int, requester_id: int, requester_role: str, i
 @tool("request_comp_off")
 def request_comp_off(employee_id: int, requester_id: int, requester_role: str, input_data: dict | None = None) -> dict:
     """Employee requests comp off credit for working on a holiday/weekend."""
-    err = ensure_role(requester_role, ["employee", "hr", "admin"])
+    # Managers also work weekends/holidays — they must be able to claim comp off too
+    err = ensure_role(requester_role, ["employee", "manager", "hr", "admin"])
     if err:
         return err
     input_data = input_data or {}
@@ -453,7 +454,8 @@ def request_comp_off(employee_id: int, requester_id: int, requester_role: str, i
             return {"error": "Employee not found", "code": "NOT_FOUND"}
 
         requester_emp = Employee.objects.filter(user_id=requester_id).first()
-        if requester_role == "employee" and (not requester_emp or requester_emp.id != employee_id):
+        # Employees and managers can only claim for themselves; HR/admin can claim for anyone
+        if requester_role in ("employee", "manager") and (not requester_emp or requester_emp.id != employee_id):
             return {"error": "Forbidden", "code": "FORBIDDEN"}
 
         req = CompOffService(emp).request(worked_on=worked_on, days_claimed=days_claimed, reason=reason)

@@ -595,7 +595,9 @@ def _parse_action_intent_input(state: AgentState, intent: str) -> dict:
     """
     For action intents (approve_leave, reject_leave, cancel_leave, etc.):
     extract the relevant IDs and parameters from the NL query.
+    Fast regex fallback runs first so the action still works without an LLM call.
     """
+    import re as _re
     input_data = state.get("input_data") or {}
     query = str(input_data.get("query") or "").strip()
 
@@ -605,6 +607,53 @@ def _parse_action_intent_input(state: AgentState, intent: str) -> dict:
 
     if not query:
         return input_data
+
+    # ── Fast regex fallback — extracts IDs without an LLM call ──────────────
+    # Patterns: "approve leave #7", "approve 14 and 15", "reject #12 reason bad timing",
+    #           "approved 3 because he worked", "approve comp off 5"
+    result = dict(input_data)
+    q_lower = query.lower()
+
+    # Extract ALL numeric IDs — supports "approve 14 and 15", "approve #7 #8"
+    all_ids = [int(m) for m in _re.findall(r'\b(\d+)\b', query)]
+    extracted_id = all_ids[0] if all_ids else None
+
+    if intent in ("approve_leave", "reject_leave", "cancel_leave", "renotify_manager"):
+        if extracted_id and not result.get("leave_id"):
+            result["leave_id"] = extracted_id
+        # Store all IDs for bulk operations (approve 14 and 15)
+        if len(all_ids) > 1:
+            result["leave_ids"] = all_ids
+    elif intent == "comp_off_approve":
+        if extracted_id and not result.get("comp_off_id"):
+            result["comp_off_id"] = extracted_id
+        if len(all_ids) > 1:
+            result["comp_off_ids"] = all_ids
+        # Extract action: approve vs reject
+        if "reject" in q_lower or "decline" in q_lower:
+            result["action"] = "reject"
+        else:
+            result["action"] = "approve"
+    elif intent == "comp_off_request":
+        pass  # date extraction still needs LLM
+
+    # Extract rejection reason after "because", "reason", "since", "as"
+    reason_match = _re.search(r'(?:because|reason[:\s]|since|as)[:\s]+(.+)', q_lower)
+    if reason_match and not result.get("rejection_reason") and not result.get("reason"):
+        reason_text = reason_match.group(1).strip().rstrip(".,!?")
+        if intent in ("reject_leave",):
+            result["rejection_reason"] = reason_text
+        elif intent == "comp_off_request":
+            result["reason"] = reason_text
+
+    # If regex already gave us what we need, skip the LLM call entirely
+    has_needed = (
+        (intent in ("approve_leave", "reject_leave", "cancel_leave", "renotify_manager") and result.get("leave_id")) or
+        (intent == "comp_off_approve" and result.get("comp_off_id"))
+    )
+    if has_needed:
+        logger.info("action_intent regex parse intent=%s result=%s", intent, result)
+        return result
 
     try:
         from core.llm.base import LLMMessage
@@ -790,17 +839,42 @@ def run(state: AgentState) -> AgentState:
         if not call_specs:
             call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names]
     else:
-        call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names]
+        # Bulk leave actions: "approve 14 and 15" → expand into one spec per ID
+        leave_ids = apply_input.get("leave_ids") or []
+        comp_off_ids = apply_input.get("comp_off_ids") or []
+        action_tool = None
+        if intent == "approve_leave":
+            action_tool = "approve_leave_request"
+        elif intent == "reject_leave":
+            action_tool = "reject_leave_request"
+        elif intent == "cancel_leave":
+            action_tool = "cancel_leave_request"
+        elif intent == "comp_off_approve":
+            action_tool = "approve_comp_off" if apply_input.get("action") != "reject" else "reject_comp_off"
+
+        if action_tool and len(leave_ids) > 1:
+            # One spec for get_pending_approvals (shared), then one per leave ID
+            call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names if n != action_tool]
+            for lid in leave_ids:
+                call_specs.append({"tool_name": action_tool, "input_data": {**apply_input, "leave_id": lid}, "_bulk_key": f"{action_tool}_{lid}"})
+        elif action_tool and len(comp_off_ids) > 1:
+            call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names if n != action_tool]
+            for cid in comp_off_ids:
+                call_specs.append({"tool_name": action_tool, "input_data": {**apply_input, "comp_off_id": cid}, "_bulk_key": f"{action_tool}_{cid}"})
+        else:
+            call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names]
 
     for spec in call_specs:
         tool_name = spec.get("tool_name")
         if not tool_name:
             continue
-        if tool_name in tool_results:
+        # For bulk calls, use the unique _bulk_key so each call runs (not deduplicated by tool_name)
+        result_key = spec.get("_bulk_key") or tool_name
+        if result_key in tool_results and not spec.get("_bulk_key"):
             continue
         fn = get(tool_name)
         if not fn:
-            tool_results[tool_name] = {"error": "Tool not registered", "code": "TOOL_NOT_FOUND"}
+            tool_results[result_key] = {"error": "Tool not registered", "code": "TOOL_NOT_FOUND"}
             continue
         input_data = spec.get("input_data") if isinstance(spec.get("input_data"), dict) else apply_input
         employee_id = spec.get("employee_id")
@@ -808,18 +882,18 @@ def run(state: AgentState) -> AgentState:
             employee_id = state.get("employee_id")
         try:
             _t = time.perf_counter()
-            tool_results[tool_name] = fn(
+            tool_results[result_key] = fn(
                 employee_id=employee_id,
                 requester_id=state.get("requester_id"),
                 requester_role=state.get("requester_role"),
                 input_data=input_data,
             )
             logger.info(
-                "[PERF] mcp_tool %-30s %.3fs", tool_name, time.perf_counter() - _t
+                "[PERF] mcp_tool %-30s %.3fs key=%s", tool_name, time.perf_counter() - _t, result_key
             )
         except Exception as exc:
             logger.exception("MCP tool failed tool=%s", tool_name)
-            tool_results[tool_name] = {"error": str(exc), "code": "TOOL_ERROR"}
+            tool_results[result_key] = {"error": str(exc), "code": "TOOL_ERROR"}
 
     if state.get("intent") == "leave_application":
         created = tool_results.get("create_leave_request") or {}
@@ -853,7 +927,8 @@ def run(state: AgentState) -> AgentState:
         except NameError:
             all_called_this_turn = []
     else:
-        all_called_this_turn = [s["tool_name"] for s in call_specs if s.get("tool_name")]
+        # Use _bulk_key when present so the context blob labels bulk results correctly
+        all_called_this_turn = [s.get("_bulk_key") or s["tool_name"] for s in call_specs if s.get("tool_name")]
     state["_tools_called_this_turn"] = all_called_this_turn
 
     logger.info("MCP node complete intent=%s tools=%s", state.get("intent"), list(tool_results.keys()))
