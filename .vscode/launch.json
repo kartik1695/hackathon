@@ -1,9 +1,8 @@
 {
   "version": "0.2.0",
   "configurations": [
-
     {
-      "name": "Django: runserver (env.all.local)",
+      "name": "Django: runserver",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/backend/manage.py",
@@ -39,6 +38,105 @@
         "OLLAMA_EMBED_MODEL": "nomic-embed-text",
         "VITE_API_URL": "http://localhost:8002"
       }
+    },
+    {
+      "name": "Daphne: channels (WS port 8003)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "daphne",
+      "args": ["-b", "0.0.0.0", "-p", "8003", "config.asgi:application"],
+      "python": "/Users/kartik.keswani/.venvs/hackathon-backend/bin/python",
+      "cwd": "${workspaceFolder}/backend",
+      "justMyCode": true,
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "config.settings.local",
+        "DJANGO_SECRET_KEY": "dev-secret-key-change-me",
+        "DATABASE_URL": "postgresql://hrms:hrms_secret@127.0.0.1:5432/hrms",
+        "REDIS_URL": "redis://127.0.0.1:6379/0",
+        "RABBITMQ_URL": "amqp://hrms:hrms_secret@127.0.0.1:5672//",
+        "JWT_ACCESS_TOKEN_LIFETIME_MINUTES": "60",
+        "JWT_REFRESH_TOKEN_LIFETIME_DAYS": "7",
+        "CORS_ALLOW_ALL_ORIGINS": "True",
+        "INTERNAL_API_TOKEN": "change-this-in-production",
+        "LLM_PROVIDER": "ollama",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "OLLAMA_MODEL": "gpt-oss:120b-cloud",
+        "EMBEDDING_PROVIDER": "ollama",
+        "OLLAMA_EMBED_MODEL": "nomic-embed-text"
+      }
+    },
+    {
+      "name": "Celery: worker (leave,notifications,ai_heavy,analytics)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "celery",
+      "args": [
+        "-A",
+        "config",
+        "worker",
+        "-Q",
+        "leave,notifications,ai_heavy,analytics",
+        "-c",
+        "2",
+        "--loglevel=info"
+      ],
+      "python": "/Users/kartik.keswani/.venvs/hackathon-backend/bin/python",
+      "cwd": "${workspaceFolder}/backend",
+      "justMyCode": true,
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "config.settings.local",
+        "DJANGO_SECRET_KEY": "change-this-in-production",
+        "DATABASE_URL": "postgresql://hrms:hrms_secret@127.0.0.1:5432/hrms",
+        "REDIS_URL": "redis://127.0.0.1:6379/0",
+        "CELERY_RESULT_BACKEND": "redis://127.0.0.1:6379/1",
+        "RABBITMQ_URL": "amqp://hrms:hrms_secret@127.0.0.1:5672//",
+        "LLM_PROVIDER": "ollama",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "OLLAMA_MODEL": "gpt-oss:120b-cloud",
+        "EMBEDDING_PROVIDER": "ollama",
+        "OLLAMA_EMBED_MODEL": "nomic-embed-text",
+        "INTERNAL_API_TOKEN": "change-this-in-production"
+      }
+    },
+    {
+      "name": "Celery: beat scheduler",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "celery",
+      "args": ["-A", "config", "beat", "--loglevel=info"],
+      "python": "/Users/kartik.keswani/.venvs/hackathon-backend/bin/python",
+      "cwd": "${workspaceFolder}/backend",
+      "justMyCode": true,
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "config.settings.local",
+        "DJANGO_SECRET_KEY": "change-this-in-production",
+        "DATABASE_URL": "postgresql://hrms:hrms_secret@127.0.0.1:5432/hrms",
+        "REDIS_URL": "redis://127.0.0.1:6379/0",
+        "CELERY_RESULT_BACKEND": "redis://127.0.0.1:6379/1",
+        "RABBITMQ_URL": "amqp://hrms:hrms_secret@127.0.0.1:5672//"
+      }
+    },
+    {
+      "name": "Vite: frontend dev",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full local stack (Django + Daphne + Celery)",
+      "configurations": [
+        "Django: runserver",
+        "Daphne: channels (WS port 8003)",
+        "Celery: worker (leave,notifications,ai_heavy,analytics)",
+        "Celery: beat scheduler"
+      ],
+      "stopAll": true
     }
   ]
 }

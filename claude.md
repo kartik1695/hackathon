@@ -266,3 +266,42 @@ Local dev (`.env.local`): change hosts to `localhost`, set `DJANGO_SETTINGS_MODU
 ### Personalised LLM Responses (user_profile injection)
 - **Failed:** System prompt was generic — LLM had no idea who it was talking to, producing impersonal responses.
 - **Fixed:** `ChatService._build_agent_state()` builds a `user_profile` dict from the authenticated employee (name, first_name, role, title, department, manager_name, employee_id). Injected into both the system prompt and the `[CONTEXT]` blob. `_get_system_prompt()` generates a personalised identity line: *"You are talking to Kartik (Senior Engineering Manager) in the Technology department — their manager is Rahul Shah."* LLM addresses user by first name naturally, adjusts tone by role (manager = crisp/executive, employee = warm/guided).
+
+---
+
+## 11. Real-Time Notifications & Re-Notify Architecture
+
+### WebSocket Notification Flow
+- Employee applies leave → `on_leave_request_saved` signal → `dispatch_notification.delay()` → `InAppHandler` → `InAppNotificationService.create_notification()` → `channel_layer.group_send("notifications_{user_id}")` → manager sees notification in chat in real time with **Approve / Reject** CTAs.
+- Manager approves → `process_leave_approval` Celery task → employee gets WS push.
+- Manager rejects → `_notify_employee_rejection` signal handler → employee gets WS push.
+- `NotificationConsumer` (`ws/notifications/?token=<JWT>`): authenticates via JWT query param, joins personal group, flushes up to 20 unread on connect, handles `mark_read` messages.
+
+### Re-Notify (Smart Manager Reminders)
+`InAppNotification` model has three new fields (migration `0002_add_renotify_fields`):
+- `requester_email` — employee who triggered the notification; only they can re-notify.
+- `renotify_count` — max 3 reminders per notification (`RENOTIFY_MAX = 3`).
+- `last_renotified_at` — 60-minute cooldown between reminders (`RENOTIFY_COOLDOWN_MINUTES = 60`).
+
+**Endpoint:** `POST /api/notifications/renotify/` body `{"leave_id": N}`
+
+**Logic in `InAppNotificationService.renotify_leave()`:**
+- Manager **unread** → re-push same `InAppNotification` to manager's WS (no new DB record) + bump `renotify_count`.
+- Manager **read** but leave still PENDING → create fresh reminder `InAppNotification` + push to WS.
+- `renotify_count >= 3` → return `status: "limit_reached"`.
+- Called within cooldown window → return `status: "cooldown"` with `next_available_in_minutes`.
+
+**`requester_email` propagation:** `signals._notify_manager_new_leave()` sets `metadata.requester_email = employee.user.email`. `InAppHandler.send()` reads this and passes it to `InAppNotificationService.create_notification()`.
+
+**Three UX paths for employee to re-notify:**
+1. "Remind manager" CTA button on notification bubble (direct REST, no chat round-trip).
+2. Type `"remind manager about leave #14"` — regex intercepted client-side in `submit()`, calls REST directly.
+3. Bell icon click → re-fetch all unread via `GET /api/notifications/?unread=true` → re-inject into chat.
+
+### Chat Analytics / Charts
+- LLM system prompt instructs: emit ` ```chart {...} ``` ` JSON block when user asks for charts/graphs.
+- Schema: `{"type":"bar"|"line"|"pie"|"area","title":"...","data":[...],"xKey":"...","yKeys":[...]}`
+- Frontend `parseMessageParts()` splits content into text + chart blocks.
+- `ChartBlock` renders via `recharts` (bar/line/pie/area) with brand colors.
+- `AssistantContent` renders both charts and markdown in same message.
+- Trigger phrases: "show as chart", "bar chart", "pie chart", "visualize", "graph".

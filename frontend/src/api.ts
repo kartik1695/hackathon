@@ -1,4 +1,5 @@
-const BASE = "http://localhost:8002/api";
+const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
+export const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? "ws://localhost:8001";
 
 export interface TokenPair {
   access: string;
@@ -97,6 +98,52 @@ export async function fetchSessionMessages(token: string, sessionId: string): Pr
   if (!res.ok) return [];
   const data = await res.json();
   return data.messages as BackendMessage[];
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export interface NotificationItem {
+  id: number;
+  subject: string;
+  body: string;
+  metadata: Record<string, unknown>;
+  read: boolean;
+  created_at: string;
+}
+
+export async function fetchUnreadNotifications(token: string): Promise<NotificationItem[]> {
+  const res = await fetch(`${BASE}/notifications/?unread=true&limit=20`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+export interface RenotifyResult {
+  status: "re_pushed" | "new_reminder" | "limit_reached" | "cooldown" | "not_found" | "error";
+  manager_read?: boolean;
+  renotify_count?: number;
+  reminders_left?: number;
+  next_available_in_minutes?: number;
+  error?: string;
+}
+
+export async function renotifyLeave(token: string, leaveId: number): Promise<RenotifyResult> {
+  const res = await fetch(`${BASE}/notifications/renotify/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ leave_id: leaveId }),
+  });
+  if (res.status === 401) throw new Error("401 Unauthorized");
+  const data = await res.json();
+  if (!res.ok) {
+    return { status: "error", error: data.error || `Error ${res.status}` };
+  }
+  return data as RenotifyResult;
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────

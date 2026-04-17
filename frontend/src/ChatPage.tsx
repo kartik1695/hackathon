@@ -1,30 +1,46 @@
-import {
+import React, {
   useState,
   useRef,
   useEffect,
   KeyboardEvent,
-  FormEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 import {
   sendMessage,
   ChatResponse,
   fetchSessions,
   fetchSessionMessages,
   fetchMe,
+  fetchUnreadNotifications,
+  renotifyLeave,
+  RenotifyResult,
   UserProfile,
   SessionMeta,
+  WS_BASE,
 } from "./api";
-import { getAccess, getRefresh, saveTokens, clearTokens } from "./auth";
+import { getAccess, clearTokens, getValidToken } from "./auth";
 import { refreshToken } from "./api";
+
+interface NotificationCTA {
+  label: string;
+  action: string; // chat message to submit
+  style?: "primary" | "danger";
+}
 
 interface Message {
   id: number;
   role: "user" | "assistant";
   content: string;
   error?: boolean;
+  isNotification?: boolean;
+  notificationId?: number;
+  ctas?: NotificationCTA[];
 }
 
 interface CollectionState {
@@ -124,6 +140,129 @@ function getContextSuggestions(lastReply: string): string[] {
   return DEFAULT_SUGGESTIONS;
 }
 
+function buildCTAs(metadata: Record<string, unknown>): NotificationCTA[] {
+  const ctas: NotificationCTA[] = [];
+  const leaveId = metadata?.leave_id;
+  const empName = metadata?.employee_name as string | undefined;
+  const compOffId = metadata?.comp_off_id;
+
+  if (metadata?.action_required) {
+    if (leaveId) {
+      // Always include leave_id in the action so the AI parser can extract it reliably
+      ctas.push({ label: "Approve", action: `Approve leave #${leaveId}`, style: "primary" });
+      ctas.push({ label: "Reject", action: `Reject leave #${leaveId}`, style: "danger" });
+    }
+    if (compOffId) {
+      ctas.push({ label: "Approve Comp Off", action: `Approve comp off #${compOffId}`, style: "primary" });
+      ctas.push({ label: "Reject", action: `Reject comp off #${compOffId}`, style: "danger" });
+    }
+  }
+  if (leaveId && !metadata?.action_required) {
+    ctas.push({ label: "View my leaves", action: "Show my leave history", style: "primary" });
+    // Employee-facing: allow re-notifying manager if leave is pending
+    if (metadata?.status === "PENDING" || (!metadata?.status && metadata?.action_required === undefined)) {
+      ctas.push({ label: "Remind manager", action: `__renotify_leave_${leaveId}`, style: "primary" });
+    }
+  }
+  return ctas;
+}
+
+// ── Chart support ────────────────────────────────────────────────────────────
+
+interface ChartSpec {
+  type: "bar" | "line" | "pie" | "area";
+  title?: string;
+  data: Record<string, unknown>[];
+  xKey: string;
+  yKeys: string[];
+}
+
+const CHART_COLORS = ["#E8622A", "#2C1810", "#8B6147", "#F59E4A", "#B8977E", "#6B4F3A"];
+
+function ChartBlock({ spec }: { spec: ChartSpec }) {
+  const { type, title, data, xKey, yKeys } = spec;
+  return (
+    <div className="my-3">
+      {title && (
+        <p className="text-xs font-semibold mb-2" style={{ color: "#2C1810" }}>{title}</p>
+      )}
+      <ResponsiveContainer width="100%" height={240}>
+        {type === "pie" ? (
+          <PieChart>
+            <Pie data={data} dataKey={yKeys[0] || "value"} nameKey={xKey} cx="50%" cy="50%" outerRadius={90} label>
+              {data.map((_, i) => (
+                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        ) : type === "line" ? (
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F0E4D8" />
+            <XAxis dataKey={xKey} tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <Tooltip />
+            <Legend />
+            {yKeys.map((k, i) => (
+              <Line key={k} type="monotone" dataKey={k} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} />
+            ))}
+          </LineChart>
+        ) : type === "area" ? (
+          <AreaChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F0E4D8" />
+            <XAxis dataKey={xKey} tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <Tooltip />
+            <Legend />
+            {yKeys.map((k, i) => (
+              <Area key={k} type="monotone" dataKey={k} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length] + "33"} strokeWidth={2} />
+            ))}
+          </AreaChart>
+        ) : (
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F0E4D8" />
+            <XAxis dataKey={xKey} tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <Tooltip />
+            <Legend />
+            {yKeys.map((k, i) => (
+              <Bar key={k} dataKey={k} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[3, 3, 0, 0]} />
+            ))}
+          </BarChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/**
+ * Split message content into parts: text segments and chart specs.
+ * Chart blocks: ```chart\n{...}\n```
+ */
+function parseMessageParts(content: string): Array<{ kind: "text"; text: string } | { kind: "chart"; spec: ChartSpec }> {
+  const parts: Array<{ kind: "text"; text: string } | { kind: "chart"; spec: ChartSpec }> = [];
+  const regex = /```chart\s*([\s\S]*?)```/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > last) {
+      parts.push({ kind: "text", text: content.slice(last, match.index) });
+    }
+    try {
+      const spec = JSON.parse(match[1].trim()) as ChartSpec;
+      parts.push({ kind: "chart", spec });
+    } catch {
+      parts.push({ kind: "text", text: match[0] });
+    }
+    last = match.index + match[0].length;
+  }
+  if (last < content.length) {
+    parts.push({ kind: "text", text: content.slice(last) });
+  }
+  return parts;
+}
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -146,6 +285,46 @@ function useClock(): string {
     return () => clearInterval(id);
   }, []);
   return time;
+}
+
+const MD_COMPONENTS = {
+  table: ({ children }: { children?: React.ReactNode }) => (
+    <div className="overflow-x-auto w-full my-2">
+      <table className="w-full border-collapse text-xs">{children}</table>
+    </div>
+  ),
+  th: ({ children }: { children?: React.ReactNode }) => (
+    <th className="text-left px-3 py-2 text-xs font-semibold whitespace-nowrap"
+      style={{ background: "#F5EDE4", borderBottom: "1px solid #E8D9CC", color: "#2C1810" }}>
+      {children}
+    </th>
+  ),
+  td: ({ children }: { children?: React.ReactNode }) => (
+    <td className="px-3 py-2 text-xs align-top"
+      style={{ borderBottom: "1px solid #F0E4D8", color: "#3D2010" }}>
+      {children}
+    </td>
+  ),
+  tr: ({ children }: { children?: React.ReactNode }) => (
+    <tr className="hover:bg-orange-50 transition-colors">{children}</tr>
+  ),
+};
+
+function AssistantContent({ content }: { content: string }) {
+  const parts = parseMessageParts(content);
+  return (
+    <div className="prose prose-sm max-w-none overflow-x-auto" style={{ color: "#1C0F07" }}>
+      {parts.map((part, i) =>
+        part.kind === "chart" ? (
+          <ChartBlock key={i} spec={part.spec} />
+        ) : (
+          <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={MD_COMPONENTS as never}>
+            {part.text}
+          </ReactMarkdown>
+        )
+      )}
+    </div>
+  );
 }
 
 const WELCOME: Message = {
@@ -308,6 +487,11 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [quote, setQuote] = useState(getRandomQuote);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const wsRef = useRef<WebSocket | null>(null);
+  // Track notification IDs already shown via initial REST fetch — prevents double-counting
+  // when WS flushes the same unread notifications on connect.
+  const seenNotifIds = useRef<Set<number>>(new Set());
   const time = useClock();
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -315,12 +499,18 @@ export default function ChatPage() {
 
   useEffect(() => {
     async function load() {
-      const token = getAccess();
-      if (!token) return;
       try {
-        const [list, me] = await Promise.all([fetchSessions(token), fetchMe(token)]);
+        const token = await getValidToken(refreshToken);
+        const [list, me, unread] = await Promise.all([
+          fetchSessions(token),
+          fetchMe(token),
+          fetchUnreadNotifications(token),
+        ]);
         setSessions(list);
         if (me) setUserProfile(me);
+        setUnreadCount(unread.length);
+        // Pre-populate seenNotifIds so WS flush won't double-count these
+        unread.forEach((n) => seenNotifIds.current.add(n.id));
       } catch {
         // non-critical
       }
@@ -328,8 +518,77 @@ export default function ChatPage() {
     load();
   }, []);
 
+  // WebSocket — real-time notifications
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    let ws: WebSocket;
+    let retryTimeout: ReturnType<typeof setTimeout>;
+    let destroyed = false;
+
+    async function connect() {
+      if (destroyed) return;
+
+      let token: string;
+      try {
+        token = await getValidToken(refreshToken);
+      } catch {
+        return; // not logged in or refresh failed — stop retrying
+      }
+
+      ws = new WebSocket(`${WS_BASE}/ws/notifications/?token=${token}`);
+      wsRef.current = ws;
+
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type !== "notification") return;
+
+          const ctas = buildCTAs(data.metadata || {});
+          const notifMsg: Message = {
+            id: nextId(),
+            role: "assistant",
+            content: `**${data.subject}**\n\n${data.body}`,
+            isNotification: true,
+            notificationId: data.id,
+            ctas,
+          };
+          // Deduplicate: skip if this notification ID is already shown as a bubble
+          setMessages((prev) => {
+            const alreadyShown = prev.some((m) => m.notificationId === data.id);
+            if (alreadyShown) return prev;
+            return [...prev, notifMsg];
+          });
+          // Only increment counter for truly NEW notifications (not WS flush of already-counted ones)
+          if (!seenNotifIds.current.has(data.id)) {
+            setUnreadCount((c) => c + 1);
+          }
+          seenNotifIds.current.add(data.id);
+        } catch { /* ignore parse errors */ }
+      };
+
+      ws.onclose = (ev) => {
+        if (destroyed) return;
+        // 4001 = auth failed — wait longer before retry (token may need refresh)
+        const delay = ev.code === 4001 ? 10000 : 5000;
+        retryTimeout = setTimeout(connect, delay);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+
+    return () => {
+      destroyed = true;
+      clearTimeout(retryTimeout);
+      wsRef.current?.close();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [messages, loading]);
 
   useEffect(() => {
@@ -339,31 +598,97 @@ export default function ChatPage() {
     ta.style.height = Math.min(ta.scrollHeight, 160) + "px";
   }, [input]);
 
-  async function callWithRefresh(
-    fn: (token: string) => Promise<ChatResponse>
-  ): Promise<ChatResponse> {
-    const token = getAccess();
-    if (!token) throw new Error("Not logged in");
+  /** Get a fresh token (proactive refresh if within 60s of expiry). */
+  async function freshToken(): Promise<string> {
+    return getValidToken(refreshToken);
+  }
+
+  function markNotificationRead(notificationId: number) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "mark_read", id: notificationId }));
+    }
+    // Remove bubble from chat + decrement badge
+    setMessages((prev) => prev.filter((m) => m.notificationId !== notificationId));
+    setUnreadCount((c) => Math.max(0, c - 1));
+  }
+
+  /** Bell button: re-surface all unread notifications into chat */
+  async function renotify() {
     try {
-      return await fn(token);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes("401")) {
-        const refresh = getRefresh();
-        if (!refresh) throw err;
-        const newAccess = await refreshToken(refresh);
-        saveTokens(newAccess, refresh);
-        return await fn(newAccess);
+      const token = await freshToken();
+      const items = await fetchUnreadNotifications(token);
+      // Always sync badge to actual server count
+      setUnreadCount(items.length);
+      // Sync seenNotifIds so future WS pushes of these are not double-counted
+      items.forEach((n) => seenNotifIds.current.add(n.id));
+      if (items.length === 0) {
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: "assistant", content: "✅ No unread notifications right now.", isNotification: true, ctas: [] },
+        ]);
+        return;
       }
-      throw err;
+      setMessages((prev) => [
+        ...prev,
+        ...items.map((n) => ({
+          id: nextId(),
+          role: "assistant" as const,
+          content: `**${n.subject}**\n\n${n.body}`,
+          isNotification: true,
+          notificationId: n.id,
+          ctas: buildCTAs(n.metadata),
+        })),
+      ]);
+    } catch {
+      // non-critical
+    }
+  }
+
+  /** Employee reminds manager about a specific pending leave */
+  async function handleRenotifyLeave(leaveId: number) {
+    try {
+      const token = await freshToken();
+      const result: RenotifyResult = await renotifyLeave(token, leaveId);
+      let content = "";
+      switch (result.status) {
+        case "re_pushed":
+          content = `🔁 **Reminder sent!** Your manager hasn't read the notification yet — we've re-sent it. `
+            + `(${result.reminders_left} reminder${result.reminders_left === 1 ? "" : "s"} remaining)`;
+          break;
+        case "new_reminder":
+          content = `🔁 **Reminder sent!** Your manager had seen the original notification but hasn't acted yet — a fresh reminder has been delivered. `
+            + `(${result.reminders_left} reminder${result.reminders_left === 1 ? "" : "s"} remaining)`;
+          break;
+        case "limit_reached":
+          content = `⚠️ You've already sent the maximum 3 reminders for this leave. Please contact your manager directly.`;
+          break;
+        case "cooldown":
+          content = `⏳ You can send another reminder in ${result.next_available_in_minutes} minute(s). Please wait a bit.`;
+          break;
+        case "not_found":
+          content = `❌ Could not find a pending leave #${leaveId} to remind about. It may have already been actioned.`;
+          break;
+        default:
+          content = `❌ Something went wrong: ${result.error || "unknown error"}`;
+      }
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: "assistant", content, isNotification: true, ctas: [] },
+      ]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: "assistant", content: `❌ Renotify failed: ${msg}`, error: true },
+      ]);
     }
   }
 
   async function loadSession(session: SessionMeta) {
     if (activeSessionId === session.session_id) return;
     setLoadingHistory(true);
-    const token = getAccess();
-    if (!token) return;
     try {
+      const token = await freshToken();
       const backendMessages = await fetchSessionMessages(token, session.session_id);
       const restored: Message[] = backendMessages.map((m) => ({
         id: nextId(),
@@ -394,14 +719,24 @@ export default function ChatPage() {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
+    // Intercept renotify intent client-side — avoid chat round-trip
+    const renotifyPattern = /(?:re[-\s]?notify|remind)\s+(?:my\s+)?manager(?:\s+about)?(?:\s+(?:leave|request))?\s+#?(\d+)/i;
+    const renotifyMatch = trimmed.match(renotifyPattern);
+    if (renotifyMatch) {
+      const leaveId = parseInt(renotifyMatch[1], 10);
+      setMessages((prev) => [...prev, { id: nextId(), role: "user", content: trimmed }]);
+      setInput("");
+      await handleRenotifyLeave(leaveId);
+      return;
+    }
+
     setMessages((prev) => [...prev, { id: nextId(), role: "user", content: trimmed }]);
     setInput("");
     setLoading(true);
 
     try {
-      const data = await callWithRefresh((token) =>
-        sendMessage(token, trimmed, sessionId, collectionState)
-      );
+      const token = await freshToken();
+      const data = await sendMessage(token, trimmed, sessionId, collectionState);
 
       const newCS = {
         collection_stage: data.collection_stage,
@@ -419,8 +754,7 @@ export default function ChatPage() {
       ]);
 
       // Refresh session list so new title appears
-      const token = getAccess();
-      if (token) fetchSessions(token).then(setSessions).catch(() => {});
+      fetchSessions(token).then(setSessions).catch(() => {});
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong";
       if (
@@ -613,6 +947,28 @@ export default function ChatPage() {
 
           <div className="flex-1" />
 
+          {/* Notification bell — click to re-surface unread notifications */}
+          <button
+            onClick={renotify}
+            className="relative flex-shrink-0 p-1.5 rounded-lg transition-colors"
+            title="Show unread notifications"
+            style={{ color: "#8B6147" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#EDE3D9"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {unreadCount > 0 && (
+              <span
+                className="absolute top-0 right-0 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
+                style={{ background: "#E8622A" }}
+              >
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+
           {/* User avatar + time */}
           <div className="flex items-center gap-3 flex-shrink-0">
             {/* Live time */}
@@ -726,7 +1082,87 @@ export default function ChatPage() {
             )}
 
             {messages.map((msg) => (
-              msg.id === 0 ? null : // hide the WELCOME placeholder bubble
+              msg.id === 0 ? null : msg.isNotification ? (
+                /* ── Notification bubble ── */
+                <div key={msg.id} className="flex justify-start">
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-white text-[9px] font-bold"
+                    style={{ background: "#E8622A" }}
+                  >
+                    🔔
+                  </div>
+                  <div
+                    className="max-w-[82%] rounded-2xl px-4 py-3 text-sm"
+                    style={{
+                      background: "#FEF5EE",
+                      border: "1px solid #F2DECE",
+                      borderRadius: "4px 18px 18px 18px",
+                      boxShadow: "0 1px 3px rgba(232,98,42,0.1)",
+                    }}
+                    onClick={() => msg.notificationId && markNotificationRead(msg.notificationId)}
+                  >
+                    <div className="prose prose-sm max-w-none" style={{ color: "#1C0F07" }}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                    </div>
+                    {msg.ctas && msg.ctas.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: "1px solid #F2DECE" }}>
+                        {msg.ctas.map((cta) => (
+                          <button
+                            key={cta.label}
+                            onClick={() => {
+                              if (msg.notificationId) markNotificationRead(msg.notificationId);
+                              // Intercept renotify actions — call REST directly instead of chat
+                              const renotifyMatch = cta.action.match(/^__renotify_leave_(\d+)$/);
+                              if (renotifyMatch) {
+                                handleRenotifyLeave(parseInt(renotifyMatch[1], 10));
+                                return;
+                              }
+                              submit(cta.action);
+                            }}
+                            className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-all"
+                            style={
+                              cta.style === "danger"
+                                ? { background: "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5" }
+                                : { background: "#E8622A", color: "#FFFFFF" }
+                            }
+                            onMouseEnter={(e) => {
+                              if (cta.style === "danger") {
+                                (e.currentTarget as HTMLButtonElement).style.background = "#FECACA";
+                              } else {
+                                (e.currentTarget as HTMLButtonElement).style.background = "#C94E1E";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (cta.style === "danger") {
+                                (e.currentTarget as HTMLButtonElement).style.background = "#FEE2E2";
+                              } else {
+                                (e.currentTarget as HTMLButtonElement).style.background = "#E8622A";
+                              }
+                            }}
+                          >
+                            {cta.label}
+                          </button>
+                        ))}
+                        {msg.notificationId && (
+                          <button
+                            onClick={() => {
+                              /* dismiss — mark read, remove from view */
+                              markNotificationRead(msg.notificationId!);
+                              setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-lg transition-all"
+                            style={{ background: "transparent", color: "#8B6147", border: "1px solid #E8D9CC" }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F5EDE4"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                          >
+                            Dismiss
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : // hide the WELCOME placeholder bubble
               <div
                 key={msg.id}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -767,57 +1203,7 @@ export default function ChatPage() {
                   {msg.role === "user" ? (
                     <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                   ) : (
-                    <div
-                      className="prose prose-sm max-w-none overflow-x-auto"
-                      style={{
-                        color: "#1C0F07",
-                        "--tw-prose-td-borders": "#E8D9CC",
-                        "--tw-prose-th-borders": "#E8D9CC",
-                      } as React.CSSProperties}
-                    >
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          table: ({ children }) => (
-                            <div className="overflow-x-auto w-full my-2">
-                              <table className="w-full border-collapse text-xs">
-                                {children}
-                              </table>
-                            </div>
-                          ),
-                          th: ({ children }) => (
-                            <th
-                              className="text-left px-3 py-2 text-xs font-semibold whitespace-nowrap"
-                              style={{
-                                background: "#F5EDE4",
-                                borderBottom: "1px solid #E8D9CC",
-                                color: "#2C1810",
-                              }}
-                            >
-                              {children}
-                            </th>
-                          ),
-                          td: ({ children }) => (
-                            <td
-                              className="px-3 py-2 text-xs align-top"
-                              style={{
-                                borderBottom: "1px solid #F0E4D8",
-                                color: "#3D2010",
-                              }}
-                            >
-                              {children}
-                            </td>
-                          ),
-                          tr: ({ children }) => (
-                            <tr className="hover:bg-orange-50 transition-colors">
-                              {children}
-                            </tr>
-                          ),
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-                    </div>
+                    <AssistantContent content={msg.content} />
                   )}
                 </div>
               </div>

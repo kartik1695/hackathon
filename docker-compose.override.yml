@@ -7,3 +7,12 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings.development
     volumes:
       - ./backend:/app
+
+  channels:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DATABASE_URL: postgresql://hrms:hrms_secret@postgres:5432/hrms
+      REDIS_URL: redis://redis:6379/0
+      # Inherits DJANGO_SECRET_KEY from shell env (same as VS Code launch configs)
+    volumes:
+      - ./backend:/app

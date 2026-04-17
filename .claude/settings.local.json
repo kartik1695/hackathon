@@ -6,7 +6,26 @@
       "Bash(/Users/kartik.keswani/.venvs/hackathon-backend/bin/pip install *)",
       "Bash(/Users/kartik.keswani/.venvs/hackathon-backend/bin/python manage.py check)",
       "Bash(unlink /Users/kartik.keswani/.venvs/hackathon-backend)",
-      "Bash(/Users/kartik.keswani/.venvs/hackathon-backend/bin/python *)"
+      "Bash(/Users/kartik.keswani/.venvs/hackathon-backend/bin/python *)",
+      "Bash(git push *)",
+      "Bash(git rev-list *)",
+      "Bash(git cat-file *)",
+      "Bash(awk '/^blob/ {print $3, $4}')",
+      "Bash(grep -n \"msg.id === 0\\\\|isNotification\\\\|hide the WELCOME\\\\|^\\\\s*\\)}\\\\s*$\\\\|^            \\\\\\)\\\\}\" /Users/kartik.keswani/Library/CloudStorage/OneDrive-SSSupplyChainSolutionsPLtd/Desktop/trae_3sc_hackathon/hackathon/frontend/src/ChatPage.tsx)",
+      "Bash(npx tsc *)",
+      "Bash(npm install *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python manage.py makemigrations notifications --name=\"add_renotify_fields\")",
+      "Bash(python3 manage.py makemigrations notifications --name=\"add_renotify_fields\")",
+      "Bash(pip3 show *)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.local python3 backend/manage.py makemigrations notifications --name=\"add_renotify_fields\")",
+      "Bash(docker-compose exec *)",
+      "Bash(docker compose *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(ls *)",
+      "Bash(psql postgresql://hrms:hrms_secret@127.0.0.1:5432/hrms -c \"SELECT COUNT\\(*\\) FROM employees_user;\")",
+      "Bash(psql postgresql://hrms:hrms_secret@127.0.0.1:5432/hrms -c \"SELECT email FROM employees_user WHERE is_superuser=true OR is_staff=true;\")",
+      "Bash(psql *)"
     ]
   }
 }
