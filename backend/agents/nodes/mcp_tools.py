@@ -22,17 +22,10 @@ _TOOLS_BY_INTENT: dict[str, list[str]] = {
     "comp_off_approve": ["get_pending_approvals", "approve_comp_off", "reject_comp_off"],
     # Re-notify
     "renotify_manager": ["renotify_manager", "get_leave_history"],
-    # Attendance regularization & WFH
-    "regularize_attendance": ["create_regularization_request", "get_regularization_requests", "get_attendance_anomalies"],
-    "approve_regularization": ["get_regularization_requests", "approve_regularization_request", "reject_regularization_request"],
-    "show_regularizations": ["get_regularization_requests"],
-    "apply_wfh": ["create_wfh_request", "get_wfh_requests"],
-    "approve_wfh": ["get_wfh_requests", "approve_wfh_request", "reject_wfh_request"],
-    "show_wfh_requests": ["get_wfh_requests"],
-    "show_penalties": ["get_attendance_penalties", "waive_attendance_penalty"],
     # Other intents
     "burnout_check": ["get_attendance_summary", "get_attendance_anomalies"],
     "review_summary": ["get_employee_goals", "get_review_cycles"],
+    "skill_roadmap": ["generate_skill_roadmap", "get_skill_roadmaps", "get_roadmap_details", "submit_roadmap_step", "approve_roadmap_step", "reject_roadmap_step", "approve_roadmap", "reject_roadmap", "get_pending_roadmap_approvals"],
     "nl_query": ["find_employee_by_name", "get_employee_profile"],
     # Employee directory / org queries — planner picks the right tool
     "employee_query": [],  # fully LLM-planned; see _plan_next_tool_call
@@ -365,6 +358,17 @@ def _plan_next_tool_call(
         "get_new_hires             — recent joiners. Use input_data.days or parse 'this month'/'this year' from query.\n"
         "get_employees_by_role     — all employees with a role. Use input_data.role = manager|hr|cfo|employee|admin.\n"
         "\n"
+        "=== UPSKILLING TOOLS ===\n"
+        "generate_skill_roadmap    — create a new LLM-generated roadmap for a skill. Use input_data.skill_name.\n"
+        "get_skill_roadmaps        — list all upskilling roadmaps for an employee.\n"
+        "get_roadmap_details       — get all steps for a specific roadmap. Use input_data.roadmap_id.\n"
+        "submit_roadmap_step       — employee submits a specific step for review with evidence. Use input_data.step_id and optional input_data.notes/url.\n"
+        "approve_roadmap_step      — manager approves a submitted step. Use input_data.step_id and optional input_data.feedback.\n"
+        "reject_roadmap_step       — manager rejects a step with mandatory feedback. Use input_data.step_id and input_data.feedback.\n"
+        "approve_roadmap           — manager approves a PENDING_APPROVAL roadmap so the employee can start. Use input_data.roadmap_id.\n"
+        "reject_roadmap            — manager rejects a PENDING_APPROVAL roadmap. Use input_data.roadmap_id and input_data.feedback.\n"
+        "get_pending_roadmap_approvals — manager views all roadmaps from direct reports that need approval.\n"
+        "\n"
         "=== PLANNING RULES ===\n"
         "1. Use only tools from 'available_tools'.\n"
         "2. Do not repeat a tool already in 'already_called'.\n"
@@ -632,22 +636,6 @@ def _parse_action_intent_input(state: AgentState, intent: str) -> dict:
         # Store all IDs for bulk operations (approve 14 and 15)
         if len(all_ids) > 1:
             result["leave_ids"] = all_ids
-    elif intent in ("approve_regularization",):
-        if extracted_id and not result.get("regularization_id"):
-            result["regularization_id"] = extracted_id
-        if "reject" in q_lower:
-            result["action"] = "reject"
-        else:
-            result["action"] = "approve"
-    elif intent in ("approve_wfh",):
-        if extracted_id and not result.get("wfh_id"):
-            result["wfh_id"] = extracted_id
-        if "reject" in q_lower:
-            result["action"] = "reject"
-        else:
-            result["action"] = "approve"
-    elif intent in ("show_penalties",) and extracted_id:
-        result["penalty_id"] = extracted_id
     elif intent == "comp_off_approve":
         if extracted_id and not result.get("comp_off_id"):
             result["comp_off_id"] = extracted_id
@@ -673,9 +661,7 @@ def _parse_action_intent_input(state: AgentState, intent: str) -> dict:
     # If regex already gave us what we need, skip the LLM call entirely
     has_needed = (
         (intent in ("approve_leave", "reject_leave", "cancel_leave", "renotify_manager") and result.get("leave_id")) or
-        (intent == "comp_off_approve" and result.get("comp_off_id")) or
-        (intent == "approve_regularization" and result.get("regularization_id")) or
-        (intent == "approve_wfh" and result.get("wfh_id"))
+        (intent == "comp_off_approve" and result.get("comp_off_id"))
     )
     if has_needed:
         logger.info("action_intent regex parse intent=%s result=%s", intent, result)
@@ -701,11 +687,6 @@ def _parse_action_intent_input(state: AgentState, intent: str) -> dict:
             '{"worked_on": "YYYY-MM-DD", "days_claimed": <float 0.5-2.0>, "reason": "<string>"}'
         ),
         "comp_off_approve": '{"comp_off_id": <int or null>, "rejection_reason": "<string or empty>", "action": "approve" or "reject"}',
-        "regularize_attendance": '{"date": "YYYY-MM-DD", "requested_check_out": "HH:MM", "requested_check_in": "HH:MM or null", "reason": "<string>"}',
-        "approve_regularization": '{"regularization_id": <int or null>, "rejection_reason": "<string>", "action": "approve" or "reject"}',
-        "apply_wfh": '{"dates": ["YYYY-MM-DD", ...], "from_date": "YYYY-MM-DD or null", "to_date": "YYYY-MM-DD or null", "reason": "<string>"}',
-        "approve_wfh": '{"wfh_id": <int or null>, "rejection_reason": "<string>", "action": "approve" or "reject"}',
-        "show_penalties": '{"status": "ACTIVE or REVERSED or WAIVED or null", "penalty_id": <int or null>}',
     }
     schema = intent_schemas.get(intent, "{}")
     today = datetime.date.today().isoformat()
@@ -729,6 +710,75 @@ def _parse_action_intent_input(state: AgentState, intent: str) -> dict:
     except Exception:
         logger.exception("action_intent NL parse failed intent=%s", intent)
         return input_data
+
+
+def _parse_upskill_intent_input(state: AgentState) -> dict:
+    """
+    For `skill_roadmap` intent: extract skill_name, roadmap_id, step_id, action, and feedback.
+    Handles: create roadmap, approve/reject roadmap, submit/approve/reject/resubmit step,
+    show roadmaps, show pending approvals.
+    """
+    import re as _re
+    input_data = state.get("input_data") or {}
+    query = str(input_data.get("query") or "").strip()
+
+    if not query:
+        return input_data
+
+    result = dict(input_data)
+    ql = query.lower()
+
+    # Regex for IDs
+    roadmap_match = _re.search(r'roadmap\s*#?(\d+)', ql)
+    step_match = _re.search(r'step\s*#?(\d+)', ql)
+    
+    if roadmap_match:
+        result["roadmap_id"] = int(roadmap_match.group(1))
+    if step_match:
+        result["step_id"] = int(step_match.group(1))
+
+    # Extract URL evidence (GitHub or Dropbox)
+    url_match = _re.search(r'(https?://[^\s]*(?:github\.com|dropbox\.com)[^\s]*)', ql)
+    if url_match:
+        result["url"] = url_match.group(1).rstrip(".,!?;:")
+
+    # Extract feedback for rejection (text after "because", "feedback:", "reason:")
+    feedback_match = _re.search(r'(?:because|feedback[:\s]|reason[:\s]|with feedback[:\s])\s*(.+)', ql)
+    if feedback_match:
+        result["feedback"] = feedback_match.group(1).strip().rstrip(".,!?")
+
+    # Detect action verb to help the LLM planner
+    if "resubmit" in ql or "re-submit" in ql or "revise" in ql:
+        result["_action_hint"] = "resubmit_step"
+    elif "approve roadmap" in ql:
+        result["_action_hint"] = "approve_roadmap"
+    elif "reject roadmap" in ql:
+        result["_action_hint"] = "reject_roadmap"
+    elif "pending roadmap" in ql or "roadmap approval" in ql or "roadmaps need my approval" in ql:
+        result["_action_hint"] = "get_pending_roadmap_approvals"
+
+    # LLM fallback for complex queries (skill name extraction, etc.)
+    try:
+        from core.llm.base import LLMMessage
+        from core.llm.factory import LLMProviderFactory
+        import json
+        provider = LLMProviderFactory.get_provider()
+        
+        system = (
+            "Extract upskilling parameters from the user's query.\n"
+            "Return ONLY JSON:\n"
+            '  {"skill_name": "<string>", "roadmap_id": <int>, "step_id": <int>, "feedback": "<string>", "url": "<string>"}\n'
+            "Set missing fields to null."
+        )
+        resp = provider.complete([LLMMessage(role="system", content=system), LLMMessage(role="user", content=query)], temperature=0.0)
+        
+        # Use our robust json extractor
+        obj = _first_json_object(resp.content)
+        if obj:
+            return {**result, **{k: v for k, v in obj.items() if v is not None}}
+        return result
+    except Exception:
+        return result
 
 
 def _resolve_employee_by_name(name: str, *, manager_employee_id: int, requester_id: int, requester_role: str) -> int | None:
@@ -760,10 +810,10 @@ def _resolve_employee_by_name(name: str, *, manager_employee_id: int, requester_
 def run(state: AgentState) -> AgentState:
     try:
         import mcp.tools.attendance_tools
-        import mcp.tools.attendance_regularization_tools
         import mcp.tools.employee_tools
         import mcp.tools.leave_tools
         import mcp.tools.performance_tools
+        import mcp.tools.upskilling_tools
         from mcp.registry import get, list_tools
     except ImportError as exc:
         logger.exception("MCP tools import failed")
@@ -789,6 +839,9 @@ def run(state: AgentState) -> AgentState:
         "approve_leave_request", "reject_leave_request",
         "cancel_leave_request", "request_comp_off",
         "approve_comp_off", "reject_comp_off", "renotify_manager",
+        "complete_roadmap_step", "generate_skill_roadmap",
+        "submit_roadmap_step", "approve_roadmap_step", "reject_roadmap_step",
+        "approve_roadmap", "reject_roadmap",
     }
     for _wt in _WRITE_TOOLS:
         tool_results.pop(_wt, None)
@@ -826,17 +879,18 @@ def run(state: AgentState) -> AgentState:
                     on_behalf_of, resolved_id,
                 )
     elif intent in ("approve_leave", "reject_leave", "cancel_leave",
-                    "comp_off_request", "comp_off_approve", "renotify_manager",
-                    "approve_regularization", "approve_wfh",
-                    "regularize_attendance", "apply_wfh", "show_penalties"):
+                    "comp_off_request", "comp_off_approve", "renotify_manager"):
         tool_names = _TOOLS_BY_INTENT.get(intent, [])
         apply_input = _parse_action_intent_input(state, intent)
+    elif intent == "skill_roadmap":
+        tool_names = _TOOLS_BY_INTENT.get(intent, [])
+        apply_input = _parse_upskill_intent_input(state)
     else:
         tool_names = _TOOLS_BY_INTENT.get(intent, [])
         apply_input = state.get("input_data") or {}
 
     call_specs: list[dict] = []
-    if intent in ("nl_query", "employee_query"):
+    if intent in ("nl_query", "employee_query", "skill_roadmap"):
         already_called: list[str] = []
         for _ in range(6):  # employee queries may need more hops
             spec = _plan_next_tool_call(state, apply_input, tool_results, list_tools, already_called)
@@ -886,10 +940,6 @@ def run(state: AgentState) -> AgentState:
         elif intent == "comp_off_approve":
             action_tool = "approve_comp_off" if apply_input.get("action") != "reject" else "reject_comp_off"
 
-        # Determine if we actually have an ID to act on
-        has_leave_id = bool(apply_input.get("leave_id") or leave_ids)
-        has_comp_off_id = bool(apply_input.get("comp_off_id") or comp_off_ids)
-
         if action_tool and len(leave_ids) > 1:
             # One spec for get_pending_approvals (shared), then one per leave ID
             call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names if n != action_tool]
@@ -899,25 +949,6 @@ def run(state: AgentState) -> AgentState:
             call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names if n != action_tool]
             for cid in comp_off_ids:
                 call_specs.append({"tool_name": action_tool, "input_data": {**apply_input, "comp_off_id": cid}, "_bulk_key": f"{action_tool}_{cid}"})
-        elif action_tool and intent in ("approve_leave", "reject_leave", "cancel_leave") and not has_leave_id:
-            # No leave_id extracted — only fetch pending approvals so LLM can ask for clarification
-            call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names if n not in (
-                "approve_leave_request", "reject_leave_request", "cancel_leave_request"
-            )]
-        elif action_tool and intent == "comp_off_approve" and not has_comp_off_id:
-            # No comp_off_id extracted — only fetch pending approvals
-            call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names if n not in (
-                "approve_comp_off", "reject_comp_off"
-            )]
-        elif intent == "approve_regularization" and not apply_input.get("regularization_id"):
-            # No ID — fetch list so LLM can show pending requests
-            call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names if n not in (
-                "approve_regularization_request", "reject_regularization_request"
-            )]
-        elif intent == "approve_wfh" and not apply_input.get("wfh_id"):
-            call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names if n not in (
-                "approve_wfh_request", "reject_wfh_request"
-            )]
         else:
             call_specs = [{"tool_name": n, "input_data": apply_input} for n in tool_names]
 

@@ -18,8 +18,7 @@ class InAppHandler(BaseNotificationHandler):
             return False
 
         try:
-            requester_email = (metadata or {}).get("requester_email", "")
-            InAppNotificationService().create_notification(recipient_email, subject, body, metadata, requester_email=requester_email)
+            InAppNotificationService().create_notification(recipient_email, subject, body, metadata)
             logger.info("In-app notification created recipient=%s subject=%s", recipient_email, subject)
             return True
         except Exception:

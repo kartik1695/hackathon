@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.ai",
     "apps.rag",
+    "apps.upskilling",
 ]
 
 MIDDLEWARE = [

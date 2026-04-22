@@ -104,6 +104,7 @@ class ChatView(APIView):
             {
                 "reply":      reply,
                 "session_id": result.get("_session_id", ""),
+                "tool_results": result.get("tool_results", {}),
                 **self._leave_collection_fields(result),
             },
             status=status.HTTP_200_OK,
@@ -196,6 +197,7 @@ class ChatSessionMessagesView(APIView):
                 "id": m.id,
                 "role": m.role,
                 "content": m.content,
+                "tool_results": m.tool_snapshot,
                 "created_at": m.created_at.isoformat(),
             }
             for m in messages

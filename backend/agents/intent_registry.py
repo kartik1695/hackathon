@@ -168,6 +168,25 @@ INTENTS = {
             "How is John's rating",
         ],
     },
+    "skill_roadmap": {
+        "description": "User wants to create, view, approve, reject, or update an upskilling roadmap or roadmap step.",
+        "examples": [
+            "I want to learn Python, create a roadmap for me",
+            "Show me my upskilling roadmaps",
+            "Create a roadmap for React development",
+            "I want to upskill in Machine Learning",
+            "Show progress of my roadmaps",
+            "I've finished the first step of my React roadmap",
+            "Submit step 1 of my Python roadmap for review",
+            "Approve step 2 for Sarah",
+            "Reject step 3 for John as the link is not working",
+            "Approve roadmap #5",
+            "Reject roadmap #5 because it doesn't align with team goals",
+            "Show pending roadmap approvals",
+            "What roadmaps need my approval?",
+            "Resubmit step 3 of my Kubernetes roadmap",
+        ],
+    },
     "nl_query": {
         "description": "General HRMS question not categorised as employee, leave, or policy.",
         "examples": [
@@ -175,73 +194,6 @@ INTENTS = {
             "Show my notifications",
             "What is the office address?",
             "What is today's date?",
-        ],
-    },
-    "regularize_attendance": {
-        "description": "Employee wants to regularize their attendance for a past date (missed check-in or check-out).",
-        "examples": [
-            "I forgot to check out yesterday, it was 6 PM",
-            "Regularize my attendance for Monday",
-            "I missed my punch out on 15th April",
-            "Fix my attendance for last Friday, check-out was 7:30 PM",
-            "Attendance correction for 2026-04-10",
-            "I didn't check in on Tuesday, I was there from 9 AM to 6 PM",
-        ],
-    },
-    "approve_regularization": {
-        "description": "Manager approves or rejects a team member's regularization request.",
-        "examples": [
-            "Approve regularization #5",
-            "Reject regularization #3 reason insufficient justification",
-            "Show pending regularization requests from my team",
-            "Approve Dinesh's attendance regularization",
-        ],
-    },
-    "show_regularizations": {
-        "description": "Show regularization requests for self or team.",
-        "examples": [
-            "Show my regularization requests",
-            "My attendance corrections",
-            "Pending regularizations for my team",
-            "Status of my regularization request",
-        ],
-    },
-    "apply_wfh": {
-        "description": "Employee applies for work from home for one or more upcoming dates.",
-        "examples": [
-            "Apply WFH for Monday",
-            "Work from home next week Monday and Wednesday",
-            "WFH request for 21st to 25th April",
-            "I want to work from home next week",
-            "Apply WFH from 1st May to 5th May",
-        ],
-    },
-    "approve_wfh": {
-        "description": "Manager approves or rejects a team member's WFH request.",
-        "examples": [
-            "Approve WFH request #7",
-            "Reject Dinesh's WFH request",
-            "Show pending WFH requests from my team",
-            "Approve WFH #3",
-        ],
-    },
-    "show_wfh_requests": {
-        "description": "Show WFH requests for self or team.",
-        "examples": [
-            "Show my WFH requests",
-            "Team WFH for this week",
-            "My pending WFH",
-            "WFH status",
-        ],
-    },
-    "show_penalties": {
-        "description": "Show, waive, or reverse attendance penalties (PL/LOP deductions).",
-        "examples": [
-            "Show my attendance penalties",
-            "I have an LOP deduction",
-            "Waive penalty #3 reason incorrect",
-            "My attendance deductions this month",
-            "Show team penalties",
         ],
     },
 }

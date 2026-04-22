@@ -1,5 +1,4 @@
 import logging
-from datetime import date
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -96,78 +95,3 @@ class MeView(APIView):
         if not employee:
             return Response(error_response("Employee profile not found", "EMPLOYEE_NOT_FOUND"), status=404)
         return Response(EmployeeSerializer(employee).data)
-
-
-class TeamStatusView(APIView):
-    """GET /api/employees/team-status/
-    Returns today's attendance status for:
-      - direct_reports: employees whose manager is me
-      - peers: employees sharing the same manager as me
-    """
-    permission_classes = [IsEmployee]
-
-    def get(self, request):
-        from apps.attendance.models import AttendanceLog
-        from apps.leaves.models import LeaveRequest
-
-        me = getattr(request.user, "employee", None)
-        if not me:
-            return Response(error_response("Employee not found", "NOT_FOUND"), status=404)
-
-        today = date.today()
-
-        # direct reports (my team)
-        direct_reports = list(
-            Employee.objects.filter(manager=me, is_active=True)
-            .select_related("user", "department")
-        )
-        # peers (same manager, excluding self)
-        peers = []
-        if me.manager_id:
-            peers = list(
-                Employee.objects.filter(manager_id=me.manager_id, is_active=True)
-                .exclude(pk=me.pk)
-                .select_related("user", "department")
-            )
-
-        all_emps = direct_reports + peers
-        emp_ids = [e.id for e in all_emps]
-
-        # today's attendance logs
-        logs = {
-            log.employee_id: log.status
-            for log in AttendanceLog.objects.filter(employee_id__in=emp_ids, date=today)
-        }
-
-        # approved leaves today
-        on_leave_ids = set(
-            LeaveRequest.objects.filter(
-                employee_id__in=emp_ids,
-                status="APPROVED",
-                from_date__lte=today,
-                to_date__gte=today,
-            ).values_list("employee_id", flat=True)
-        )
-
-        def _emp_data(emp):
-            log_status = logs.get(emp.id, "PRESENT")
-            if emp.id in on_leave_ids:
-                today_status = "ON_LEAVE"
-            elif log_status in ("WFH", "WFH_PENDING"):
-                today_status = "WFH"
-            elif log_status == "ABSENT":
-                today_status = "ABSENT"
-            else:
-                today_status = "PRESENT"
-            return {
-                "id": emp.id,
-                "name": emp.user.name if emp.user else emp.employee_id,
-                "title": emp.title or emp.role,
-                "department": emp.department.name if emp.department else "",
-                "status": today_status,
-            }
-
-        return Response({
-            "direct_reports": [_emp_data(e) for e in direct_reports],
-            "peers": [_emp_data(e) for e in peers],
-        })

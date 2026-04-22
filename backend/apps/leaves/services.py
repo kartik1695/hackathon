@@ -136,21 +136,18 @@ class LeaveService:
         if leave.status != LeaveRequest.STATUS_PENDING:
             raise ValueError(f"Cannot approve a leave that is already {leave.status}")
 
-        # Deduct balance first (before saving status=APPROVED to avoid double signal)
-        balance_deducted = leave.balance_deducted
-        if not leave.balance_deducted and leave.leave_type not in _NO_BALANCE_TYPES:
-            balance = LeaveBalance.objects.select_for_update().filter(employee_id=leave.employee_id).first()
-            if balance:
-                balance.deduct(leave.leave_type, leave.days_count)
-                balance_deducted = True
-
-        # Single save — status + balance_deducted together → signal fires exactly once
         leave = self.write_repo.update(
             leave,
             status=LeaveRequest.STATUS_APPROVED,
             approver=approver,
-            balance_deducted=balance_deducted,
         )
+
+        # Deduct balance (idempotent — tracked by balance_deducted flag)
+        if not leave.balance_deducted and leave.leave_type not in _NO_BALANCE_TYPES:
+            balance = LeaveBalance.objects.select_for_update().filter(employee_id=leave.employee_id).first()
+            if balance:
+                balance.deduct(leave.leave_type, leave.days_count)
+                self.write_repo.update(leave, balance_deducted=True)
 
         logger.info("Leave approved leave_id=%s approver_id=%s", leave.pk, approver.id)
         return leave

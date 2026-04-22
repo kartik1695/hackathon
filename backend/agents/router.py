@@ -134,49 +134,12 @@ def route(state: AgentState) -> str:
                             "actionables", "awaiting my approval", "leaves to approve")):
         return "pending_approvals"
 
-    # ── Attendance Regularization ─────────────────────────────────────────────
-    if any(k in q for k in (
-        "regularize", "regularisation", "regularization",
-        "forgot to check out", "forgot to check in", "missed check", "missed punch",
-        "fix my attendance", "correct my attendance", "update attendance",
-        "mark my attendance", "punch correction",
-    )):
-        return "regularize_attendance"
-
-    if any(k in q for k in (
-        "approve regularization", "reject regularization",
-        "regularization request", "pending regularization",
-        "team regularization", "my team regularization",
-    )):
-        if any(k in q for k in ("approve", "approvals", "pending", "team")):
-            return "approve_regularization" if "approve" in q else "show_regularizations"
-        return "show_regularizations"
-
-    # ── WFH ───────────────────────────────────────────────────────────────────
-    if any(k in q for k in (
-        "work from home", "wfh", "work-from-home",
-        "apply wfh", "request wfh", "wfh request",
-    )):
-        if any(k in q for k in ("approve", "reject")):
-            return "approve_wfh"
-        return "apply_wfh"
-
-    if any(k in q for k in (
-        "my wfh requests", "show wfh", "wfh status",
-        "team wfh", "pending wfh",
-    )):
-        return "show_wfh_requests"
-
-    # ── Penalties ─────────────────────────────────────────────────────────────
-    if any(k in q for k in (
-        "attendance penalty", "lop penalty", "pl penalty",
-        "my penalties", "attendance deduction", "penalty for attendance",
-        "waive penalty", "reverse penalty",
-    )):
-        return "show_penalties"
-
     if any(k in q for k in ("burnout", "overworked", "stress", "overtime", "fatigue", "exhausted")):
         return "burnout_check"
+    if any(k in q for k in ("skill", "roadmap", "upskill", "learn ", "step ",
+                              "approve roadmap", "reject roadmap", "resubmit step",
+                              "pending roadmap", "roadmap approval")):
+        return "skill_roadmap"
     if any(k in q for k in ("review", "performance review", "appraisal", "360", "feedback", "rating", "goal")):
         return "review_summary"
     if any(k in q for k in ("policy", "leave policy", "security policy", "handbook", "rules", "guidelines", "entitlement",
