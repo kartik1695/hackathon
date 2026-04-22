@@ -15,6 +15,7 @@ from .views import (
     LeaveRejectView,
     LeaveRenotifyView,
     LeaveSimulateView,
+    LeaveTeamAllView,
     LeaveTeamCalendarView,
     LeaveTypesView,
 )
@@ -34,6 +35,7 @@ urlpatterns = [
     # Manager views
     path("pending/", LeavePendingApprovalsView.as_view(), name="leave-pending-approvals"),
     path("team/", LeaveTeamCalendarView.as_view(), name="leave-team-calendar"),
+    path("team/all/", LeaveTeamAllView.as_view(), name="leave-team-all"),
     path("on-behalf/<int:employee_id>/", LeaveApplyOnBehalfView.as_view(), name="leave-apply-on-behalf"),
 
     # Comp Off

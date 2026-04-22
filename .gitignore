@@ -13,3 +13,7 @@ backend/staticfiles/
 backend/media/
 frontend/node_modules/
 frontend/dist/
+*.launch.json
+.vscode/launch.json
+backend/.vscode/launch.json
+**/.vscode/launch.json

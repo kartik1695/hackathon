@@ -1,13 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import ApplyLeaveForm from "./ApplyLeaveForm";
 import LeaveTable from "./LeaveTable";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
-interface LeavePageProps {
-  token: string;
-  role: string;
-}
+interface LeavePageProps { token: string; role: string; }
 
 interface LeaveBalance {
   casual_remaining: number;
@@ -27,8 +24,6 @@ interface Leave {
   is_half_day?: boolean;
   employee_name?: string;
 }
-
-type Tab = "mine" | "pending" | "history";
 
 async function apiFetch(token: string, path: string) {
   const res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -54,36 +49,143 @@ function ProgressBar({ value, max, color = "#E8D44D" }: { value: number; max: nu
   );
 }
 
-export default function LeavePage({ token, role }: LeavePageProps) {
-  const isManager = ["manager", "hr", "cfo", "admin"].includes(role);
-  const [tab, setTab] = useState<Tab>("mine");
+const STATUS_OPTIONS = ["ALL", "PENDING", "APPROVED", "REJECTED", "CANCELLED"];
+
+// ── My Leaves view ───────────────────────────────────────────────────────────
+
+function MyLeavesView({ token }: { token: string }) {
+  const [tab, setTab] = useState<"active" | "history">("active");
   const [showForm, setShowForm] = useState(false);
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [myLeaves, setMyLeaves] = useState<Leave[]>([]);
-  const [pendingLeaves, setPendingLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
-    const [bal, mine, pending] = await Promise.all([
+    const [bal, mine] = await Promise.all([
       apiFetch(token, "/leaves/balance/"),
       apiFetch(token, "/leaves/"),
-      isManager ? apiFetch(token, "/leaves/?status=PENDING") : Promise.resolve(null),
     ]);
     if (bal) setBalance(bal);
-    const myList = mine?.results ?? (Array.isArray(mine) ? mine : []);
-    setMyLeaves(myList);
-    if (pending) {
-      const pList = pending?.results ?? (Array.isArray(pending) ? pending : []);
-      setPendingLeaves(pList);
-    }
+    const list = mine?.results ?? (Array.isArray(mine) ? mine : []);
+    setMyLeaves(list);
     setLoading(false);
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCancel(id: number) {
+    if (!confirm("Cancel this leave request?")) return;
+    await fetch(`${BASE}/leaves/${id}/cancel/`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    showToast("Leave cancelled");
+    load();
   }
 
-  useEffect(() => { load(); }, [token]);
+  const BALANCE_TILES = [
+    { label: "Casual Leave",    value: balance?.casual_remaining ?? 0,    max: 6,  color: "#E8D44D", dark: false },
+    { label: "Privilege Leave", value: balance?.privilege_remaining ?? 0, max: 18, color: "var(--primary)", dark: true },
+    { label: "Sick Leave",      value: balance?.sick_remaining ?? 0,      max: 6,  color: "#F87171", dark: false },
+    { label: "Comp Off",        value: balance?.comp_off_remaining ?? 0,  max: 10, color: "#34D399", dark: false },
+  ];
+
+  const active  = myLeaves.filter(l => l.status === "PENDING");
+  const history = myLeaves.filter(l => ["APPROVED", "REJECTED", "CANCELLED"].includes(l.status));
+
+  return (
+    <div>
+      {toast && (
+        <div className="fixed top-5 right-5 z-50 px-4 py-3 text-white text-sm font-semibold rounded-2xl shadow-2xl" style={{ background: "var(--primary-dark)" }}>
+          {toast}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+          <ApplyLeaveForm
+            token={token}
+            onSuccess={() => { setShowForm(false); showToast("Leave applied ✓"); load(); }}
+            onCancel={() => setShowForm(false)}
+          />
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: "var(--text-dark)" }}>My Leaves</h2>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Your leave balance and requests</p>
+        </div>
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-full transition-colors shadow-sm"
+          style={{ background: "var(--primary)" }}
+        >
+          <span className="text-lg leading-none">+</span>
+          Apply Leave
+        </button>
+      </div>
+
+      {/* Balance tiles */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {BALANCE_TILES.map(b => (
+          <div key={b.label} className="rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.07)]"
+            style={{ background: b.dark ? "var(--primary-dark)" : "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+            <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${b.dark ? "text-white/40" : "text-gray-400"}`}>{b.label}</div>
+            <div className={`text-4xl font-bold ${b.dark ? "text-white" : ""}`} style={b.dark ? undefined : { color: "var(--text-dark)" }}>
+              {loading ? "—" : b.value}
+            </div>
+            <div className={`text-[10px] mt-0.5 ${b.dark ? "text-white/30" : "text-gray-400"}`}>of {b.max} days</div>
+            <ProgressBar value={loading ? 0 : b.value} max={b.max} color={b.dark ? "white" : b.color} />
+          </div>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.07)] overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+        <div className="flex items-center px-5 py-4" style={{ borderBottom: "1px solid var(--card-border)" }}>
+          <div className="flex items-center gap-1 rounded-full p-1" style={{ background: "var(--primary-pale)" }}>
+            {(["active", "history"] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)}
+                className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all capitalize"
+                style={tab === t ? { background: "var(--primary-dark)", color: "white" } : { color: "var(--text-muted)" }}>
+                {t === "active" ? `Active${active.length > 0 ? ` (${active.length})` : ""}` : "History"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-5">
+          {tab === "active" && <LeaveTable leaves={active} loading={loading} onCancel={handleCancel} />}
+          {tab === "history" && <LeaveTable leaves={history} loading={loading} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Team Leaves view (manager) ───────────────────────────────────────────────
+
+function TeamLeavesView({ token }: { token: string }) {
+  const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [teamLeaves, setTeamLeaves] = useState<Leave[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState("");
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const path = statusFilter === "ALL"
+      ? "/leaves/team/all/"
+      : `/leaves/team/all/?status=${statusFilter}`;
+    const data = await apiFetch(token, path);
+    const list = data?.results ?? (Array.isArray(data) ? data : []);
+    setTeamLeaves(list);
+    setLoading(false);
+  }, [token, statusFilter]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function handleApprove(id: number) {
     await apiPost(token, `/leaves/${id}/approve/`);
@@ -98,116 +200,96 @@ export default function LeavePage({ token, role }: LeavePageProps) {
     load();
   }
 
-  async function handleCancel(id: number) {
-    if (!confirm("Cancel this leave request?")) return;
-    await fetch(`${BASE}/leaves/${id}/cancel/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    showToast("Leave cancelled");
-    load();
-  }
-
-  const BALANCE_TILES = [
-    { label: "Casual Leave", value: balance?.casual_remaining ?? 0, max: 6, color: "#E8D44D", dark: false },
-    { label: "Privilege Leave", value: balance?.privilege_remaining ?? 0, max: 18, color: "#111111", dark: true },
-    { label: "Sick Leave", value: balance?.sick_remaining ?? 0, max: 6, color: "#F87171", dark: false },
-    { label: "Comp Off", value: balance?.comp_off_remaining ?? 0, max: 10, color: "#34D399", dark: false },
-  ];
-
-  const TABS: { id: Tab; label: string; count?: number }[] = [
-    { id: "mine", label: "My Leaves" },
-    ...(isManager ? [{ id: "pending" as Tab, label: "Pending", count: pendingLeaves.length }] : []),
-    { id: "history", label: "History" },
-  ];
+  const pendingCount = teamLeaves.filter(l => l.status === "PENDING").length;
 
   return (
-    <div className="h-full overflow-y-auto p-5" style={{ background: "#EBF9F6" }}>
+    <div>
       {toast && (
-        <div className="fixed top-5 right-5 z-50 px-4 py-3 bg-[#111111] text-white text-sm font-semibold rounded-2xl shadow-2xl">
+        <div className="fixed top-5 right-5 z-50 px-4 py-3 text-white text-sm font-semibold rounded-2xl shadow-2xl" style={{ background: "var(--primary-dark)" }}>
           {toast}
         </div>
       )}
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
-          <ApplyLeaveForm
-            token={token}
-            onSuccess={() => { setShowForm(false); showToast("Leave applied successfully ✓"); load(); }}
-            onCancel={() => setShowForm(false)}
-          />
-        </div>
-      )}
-
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-[#111111]">Leave Management</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Manage your time off requests</p>
+          <h2 className="text-xl font-bold" style={{ color: "var(--text-dark)" }}>Team Leaves</h2>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+            Direct reports leave requests
+            {pendingCount > 0 && statusFilter !== "PENDING" && (
+              <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: "#F59E0B" }}>
+                {pendingCount} pending
+              </span>
+            )}
+          </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#111111] text-white text-sm font-semibold rounded-full hover:bg-gray-800 transition-colors shadow-sm"
-        >
-          <span className="text-lg leading-none">+</span>
-          <span>Apply Leave</span>
-        </button>
       </div>
 
-      {/* Balance tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        {BALANCE_TILES.map(b => (
-          <div
-            key={b.label}
-            className="rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.07)]"
-            style={{ background: b.dark ? "#111111" : "#ffffff" }}
-          >
-            <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${b.dark ? "text-white/40" : "text-gray-400"}`}>{b.label}</div>
-            <div className={`text-4xl font-bold ${b.dark ? "text-white" : "text-[#111111]"}`}>
-              {loading ? "—" : b.value}
-            </div>
-            <div className={`text-[10px] mt-0.5 ${b.dark ? "text-white/30" : "text-gray-400"}`}>of {b.max} days</div>
-            <ProgressBar value={loading ? 0 : b.value} max={b.max} color={b.dark ? "white" : b.color} />
-          </div>
-        ))}
-      </div>
-
-      {/* Main table card */}
-      <div className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.07)] overflow-hidden">
-        {/* Tab header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-          <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
-            {TABS.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  tab === t.id ? "bg-[#111111] text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {t.label}
-                {t.count ? (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${tab === t.id ? "bg-white/20 text-white" : "bg-gray-300 text-gray-600"}`}>
-                    {t.count}
-                  </span>
-                ) : null}
+      {/* Status filter tabs */}
+      <div className="rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.07)] overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+        <div className="flex items-center gap-1 px-5 py-4 overflow-x-auto" style={{ borderBottom: "1px solid var(--card-border)" }}>
+          <div className="flex items-center gap-1 rounded-full p-1 flex-shrink-0" style={{ background: "var(--primary-pale)" }}>
+            {STATUS_OPTIONS.map(s => (
+              <button key={s} onClick={() => setStatusFilter(s)}
+                className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap"
+                style={statusFilter === s ? { background: "var(--primary-dark)", color: "white" } : { color: "var(--text-muted)" }}>
+                {s === "ALL" ? "All" : s.charAt(0) + s.slice(1).toLowerCase()}
               </button>
             ))}
           </div>
         </div>
 
         <div className="p-5">
-          {tab === "mine" && (
-            <LeaveTable leaves={myLeaves.filter(l => l.status === "PENDING")} loading={loading} onCancel={handleCancel} />
-          )}
-          {tab === "pending" && isManager && (
-            <LeaveTable leaves={pendingLeaves} loading={loading} isManager onApprove={handleApprove} onReject={handleReject} />
-          )}
-          {tab === "history" && (
-            <LeaveTable leaves={myLeaves.filter(l => l.status !== "PENDING")} loading={loading} />
+          {loading ? (
+            <div className="space-y-3">
+              {[1,2,3].map(i => <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: "var(--primary-pale)" }} />)}
+            </div>
+          ) : teamLeaves.length === 0 ? (
+            <div className="py-16 text-center">
+              <div className="text-3xl mb-3">✅</div>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-dark)" }}>
+                No {statusFilter === "ALL" ? "" : statusFilter.toLowerCase()} leaves
+              </p>
+            </div>
+          ) : (
+            <LeaveTable
+              leaves={teamLeaves}
+              loading={false}
+              isManager={statusFilter === "PENDING" || statusFilter === "ALL"}
+              onApprove={handleApprove}
+              onReject={handleReject}
+            />
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+export default function LeavePage({ token, role }: LeavePageProps) {
+  const isManager = ["manager", "hr", "cfo", "admin"].includes(role);
+  const [view, setView] = useState<"my" | "team">("my");
+
+  return (
+    <div className="h-full overflow-y-auto p-5" style={{ background: "var(--page-bg)" }}>
+      {isManager && (
+        <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: "var(--primary-pale)" }}>
+          <button onClick={() => setView("my")}
+            className="text-xs font-semibold px-5 py-2 rounded-lg transition-all"
+            style={{ background: view === "my" ? "var(--primary)" : "transparent", color: view === "my" ? "white" : "var(--text-muted)" }}>
+            My Leaves
+          </button>
+          <button onClick={() => setView("team")}
+            className="text-xs font-semibold px-5 py-2 rounded-lg transition-all"
+            style={{ background: view === "team" ? "var(--primary)" : "transparent", color: view === "team" ? "white" : "var(--text-muted)" }}>
+            Team Leaves
+          </button>
+        </div>
+      )}
+
+      {(view === "my" || !isManager) && <MyLeavesView token={token} />}
+      {view === "team" && isManager && <TeamLeavesView token={token} />}
     </div>
   );
 }

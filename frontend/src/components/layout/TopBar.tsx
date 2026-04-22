@@ -30,6 +30,7 @@ const NAV_TABS: { id: NavPage; label: string; activeFor?: NavPage[] }[] = [
   { id: "leaves",     label: "Leave",       activeFor: ["leaves"] },
   { id: "employees",  label: "Salary" },
   { id: "employees",  label: "Reviews" },
+  { id: "upskilling", label: "Upskilling",  activeFor: ["upskilling"] },
   { id: "chat",       label: "AI Insights", activeFor: ["chat"] },
   { id: "employees",  label: "Reports" },
 ];

@@ -33,7 +33,8 @@
       "Bash(python3.12 *)",
       "Bash(pip3.12 show *)",
       "Bash(npm run *)",
-      "Bash(DJANGO_SETTINGS_MODULE=config.settings.local python3 manage.py backfill_attendance --weeks 5)"
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.local python3 manage.py backfill_attendance --weeks 5)",
+      "Bash(docker exec hackathon-web-1 *)"
     ]
   },
   "enabledPlugins": {

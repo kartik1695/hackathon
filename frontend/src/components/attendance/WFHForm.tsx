@@ -2,8 +2,8 @@ import { useState } from "react";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
-const darkTeal = "#0D3D36";
-const teal = "#0D9488";
+const darkTeal = "var(--primary-dark)";
+const teal = "var(--primary)";
 
 interface Props {
   token: string;
@@ -41,11 +41,11 @@ export default function WFHForm({ token, onSuccess, onCancel }: Props) {
   }
 
   const inputCls = "w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all";
-  const inputStyle = { background: "#F0FDFB", border: "1px solid #CCFBF1", color: darkTeal };
+  const inputStyle = { background: "var(--primary-pale)", border: "1px solid var(--card-border)", color: darkTeal };
 
   return (
-    <div className="max-w-md w-full rounded-2xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #D0EFE9", boxShadow: "0 16px 48px rgba(13,61,54,0.14)" }}>
-      <div className="flex items-center justify-between px-5 py-4" style={{ background: "#EBF9F6", borderBottom: "1px solid #D0EFE9" }}>
+    <div className="max-w-md w-full rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)", boxShadow: "0 16px 48px rgba(13,61,54,0.14)" }}>
+      <div className="flex items-center justify-between px-5 py-4" style={{ background: "var(--page-bg)", borderBottom: "1px solid var(--card-border)" }}>
         <div>
           <div className="font-bold text-sm" style={{ color: darkTeal }}>Work From Home Request</div>
           <div className="text-[11px] mt-0.5" style={{ color: "#6B9E9A" }}>Minimum 1 working day advance notice required</div>
@@ -108,7 +108,7 @@ export default function WFHForm({ token, onSuccess, onCancel }: Props) {
         )}
 
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onCancel} className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all" style={{ border: "1px solid #D0EFE9", color: "#6B9E9A", background: "transparent" }}>
+          <button type="button" onClick={onCancel} className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all" style={{ border: "1px solid var(--card-border)", color: "var(--text-muted)", background: "transparent" }}>
             Cancel
           </button>
           <button type="submit" disabled={loading} className="flex-1 py-2.5 rounded-full text-sm font-semibold text-white transition-all disabled:opacity-50" style={{ background: teal }}>

@@ -42,6 +42,7 @@ interface Message {
   notificationId?: number;
   ctas?: NotificationCTA[];
   notifMetadata?: Record<string, unknown>;
+  tool_results?: Record<string, any>;
 }
 
 interface CollectionState {
@@ -208,7 +209,7 @@ function ChartBlock({ spec }: { spec: ChartSpec }) {
   return (
     <div className="my-3">
       {title && (
-        <p className="text-xs font-semibold mb-2 text-[#111111]">{title}</p>
+        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-dark)" }}>{title}</p>
       )}
       <ResponsiveContainer width="100%" height={240}>
         {type === "pie" ? (
@@ -319,25 +320,25 @@ const MD_COMPONENTS = {
   ),
   th: ({ children }: { children?: React.ReactNode }) => (
     <th className="text-left px-3 py-2 text-xs font-semibold whitespace-nowrap"
-      style={{ background: "#F5F5F0", borderBottom: "1px solid #E8E5E0", color: "#111111" }}>
+      style={{ background: "var(--primary-pale)", borderBottom: "1px solid var(--card-border)", color: "var(--text-dark)" }}>
       {children}
     </th>
   ),
   td: ({ children }: { children?: React.ReactNode }) => (
     <td className="px-3 py-2 text-xs align-top"
-      style={{ borderBottom: "1px solid #F0EEEA", color: "#333333" }}>
+      style={{ borderBottom: "1px solid var(--card-border)", color: "var(--text-dark)" }}>
       {children}
     </td>
   ),
   tr: ({ children }: { children?: React.ReactNode }) => (
-    <tr className="hover:bg-[#F8F7F3] transition-colors">{children}</tr>
+    <tr className="transition-colors" style={{ }}>{children}</tr>
   ),
 };
 
 function AssistantContent({ content }: { content: string }) {
   const parts = parseMessageParts(content);
   return (
-    <div className="prose prose-sm max-w-none overflow-x-auto" style={{ color: "#111111" }}>
+    <div className="prose prose-sm max-w-none overflow-x-auto" style={{ color: "var(--text-dark)" }}>
       {parts.map((part, i) =>
         part.kind === "chart" ? (
           <ChartBlock key={i} spec={part.spec} />
@@ -466,58 +467,333 @@ function getRandomQuote(): string {
   return QUOTES[Math.floor(Math.random() * QUOTES.length)];
 }
 
-function RoadmapTracker({ roadmap, onCompleteStep }: { roadmap: any, onCompleteStep: (stepId: number) => void }) {
+const STEP_STATUS: Record<string, { color: string; label: string }> = {
+  PENDING:     { color: "#D1D5DB", label: "Pending" },
+  IN_PROGRESS: { color: "#3B82F6", label: "In Progress" },
+  SUBMITTED:   { color: "#8B5CF6", label: "Submitted" },
+  APPROVED:    { color: "#10B981", label: "Approved" },
+  REJECTED:    { color: "#EF4444", label: "Rejected" },
+};
+
+const ROADMAP_STATUS: Record<string, { bg: string; color: string }> = {
+  PENDING_APPROVAL: { bg: "#FEF3C720", color: "#92400E" },
+  IN_PROGRESS:      { bg: "#DBEAFE20", color: "#1E40AF" },
+  COMPLETED:        { bg: "#D1FAE520", color: "#065F46" },
+  REJECTED:         { bg: "#FEE2E220", color: "#991B1B" },
+};
+
+function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
+  roadmap: any;
+  role: string;
+  token: string;
+  onAction: (text: string) => void;
+  employeeId?: number;
+}) {
+  const [expandedStep, setExpandedStep] = useState<number | null>(null);
+  const [proofData, setProofData] = useState<Record<number, { url: string; notes: string }>>({});
+  const [submitting, setSubmitting] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<Record<number, string>>({});
+  const [localStatus, setLocalStatus] = useState<Record<number, string>>({});
+  const [localRoadmapStatus, setLocalRoadmapStatus] = useState<string>(roadmap.status);
+  const [managerAction, setManagerAction] = useState<{ stepId: number; type: "approve" | "reject" } | null>(null);
+  const [actionError, setActionError] = useState("");
+
+  const isManagerRole = ["manager", "hr", "cfo", "admin"].includes(role);
+  // Only act as manager for OTHER people's roadmaps, not your own.
+  // If employee_id absent from roadmap data, assume own roadmap (safe default).
+  const isOwnRoadmap = roadmap.employee_id == null
+    ? true
+    : employeeId != null && roadmap.employee_id === employeeId;
+  const isManager = isManagerRole && !isOwnRoadmap;
+  const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
+
+  const steps = roadmap.steps ?? [];
+  const completed = steps.filter((s: any) => s.is_completed).length;
+  const pct = steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0;
+  const rStyle = ROADMAP_STATUS[localRoadmapStatus] ?? { bg: "#F3F4F620", color: "#6B7280" };
+
+  async function submitProof(stepId: number) {
+    const d = proofData[stepId] ?? { url: "", notes: "" };
+    if (!d.url) { setActionError("Evidence URL required"); return; }
+    setSubmitting(stepId);
+    setActionError("");
+    try {
+      const res = await fetch(`${BASE}/upskilling/steps/${stepId}/submit/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: d.url, notes: d.notes }),
+      });
+      const data = await res.json();
+      if (data.error) { setActionError(data.error); }
+      else {
+        setLocalStatus(prev => ({ ...prev, [stepId]: "SUBMITTED" }));
+        setExpandedStep(null);
+      }
+    } finally { setSubmitting(null); }
+  }
+
+  async function handleManagerStepAction(stepId: number, action: "approve" | "reject") {
+    const fb = feedback[stepId] ?? "";
+    if (action === "reject" && !fb.trim()) { setActionError("Feedback required for rejection"); return; }
+    setSubmitting(stepId);
+    setActionError("");
+    try {
+      const res = await fetch(`${BASE}/upskilling/steps/${stepId}/${action}/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ feedback: fb || "Excellent work!" }),
+      });
+      const data = await res.json();
+      if (data.error) { setActionError(data.error); }
+      else {
+        setLocalStatus(prev => ({ ...prev, [stepId]: action === "approve" ? "APPROVED" : "REJECTED" }));
+        setManagerAction(null);
+      }
+    } finally { setSubmitting(null); }
+  }
+
+  async function handleRoadmapApprove() {
+    const res = await fetch(`${BASE}/upskilling/roadmaps/${roadmap.id}/approve/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!data.error) setLocalRoadmapStatus("IN_PROGRESS");
+  }
+
   return (
-    <div className="mt-4 p-4 rounded-xl border border-[#E8D9CC] bg-[#FDFBF9] shadow-sm">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-[#E8622A] text-white">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-          </svg>
-        </div>
-        <div>
-          <h3 className="text-sm font-bold text-[#2C1810]">{roadmap.skill_name} Roadmap</h3>
-          <p className="text-[10px] text-[#8B6147] uppercase tracking-wider font-semibold">
-            Status: <span className={roadmap.status === 'COMPLETED' ? 'text-green-600' : 'text-[#E8622A]'}>{roadmap.status}</span>
-          </p>
-        </div>
-      </div>
-
-      <p className="text-xs text-[#6B4F3A] mb-4 leading-relaxed">{roadmap.description}</p>
-
-      <div className="space-y-3">
-        {roadmap.steps?.map((step: any, index: number) => (
-          <div key={step.id} className="flex gap-3 items-start group">
-            <div className="flex flex-col items-center flex-shrink-0 mt-1">
-              <button
-                onClick={() => !step.is_completed && onCompleteStep(step.id)}
-                disabled={step.is_completed}
-                className={`w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all ${step.is_completed
-                  ? "bg-green-500 border-green-500 text-white"
-                  : "border-[#E8D9CC] text-transparent hover:border-[#E8622A]"
-                  }`}
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              {index < roadmap.steps.length - 1 && (
-                <div className={`w-0.5 h-8 mt-1 ${step.is_completed ? "bg-green-200" : "bg-[#F2EDE8]"}`} />
+    <div className="mt-3 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)" }}>
+      {/* Header */}
+      <div className="px-4 py-3" style={{ background: rStyle.bg, borderBottom: "1px solid var(--card-border)" }}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base">🚀</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold truncate" style={{ color: "var(--text-dark)" }}>{roadmap.skill_name}</p>
+              {roadmap.employee_name && isManager && (
+                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{roadmap.employee_name}</p>
               )}
             </div>
-            <div className="flex-1">
-              <h4 className={`text-xs font-semibold ${step.is_completed ? "text-[#B8977E] line-through" : "text-[#2C1810]"}`}>
-                {step.title}
-              </h4>
-              <p className={`text-[11px] mt-0.5 leading-relaxed ${step.is_completed ? "text-[#D1BEB0]" : "text-[#8B6147]"}`}>
-                {step.description}
-              </p>
-            </div>
           </div>
-        ))}
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap"
+            style={{ background: rStyle.bg, color: rStyle.color, border: `1px solid ${rStyle.color}40` }}>
+            {localRoadmapStatus.replace(/_/g, " ")}
+          </span>
+        </div>
+
+        {/* Progress bar */}
+        {steps.length > 0 && (
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex-1 h-1.5 rounded-full bg-black/10 overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: rStyle.color }} />
+            </div>
+            <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: rStyle.color }}>
+              {completed}/{steps.length}
+            </span>
+          </div>
+        )}
+
+        {/* Manager: approve pending roadmap */}
+        {isManager && localRoadmapStatus === "PENDING_APPROVAL" && (
+          <div className="flex gap-2 mt-3">
+            <button onClick={handleRoadmapApprove}
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-xl text-white transition-all"
+              style={{ background: "var(--primary)" }}>
+              ✓ Approve Roadmap
+            </button>
+            <button onClick={() => onAction(`Reject roadmap #${roadmap.id}`)}
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-xl bg-red-100 text-red-700 transition-all">
+              ✗ Reject
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Steps */}
+      {steps.length > 0 && (
+        <div className="divide-y" style={{ borderColor: "var(--card-border)" }}>
+          {steps.map((step: any, idx: number) => {
+            const effectiveStatus = localStatus[step.id] ?? step.status;
+            const ss = STEP_STATUS[effectiveStatus] ?? STEP_STATUS.PENDING;
+            const canSubmit = !isManager && (effectiveStatus === "IN_PROGRESS" || effectiveStatus === "REJECTED");
+            const canManagerAct = isManager && effectiveStatus === "SUBMITTED";
+            const isExpanded = expandedStep === step.id;
+            const isManagerActing = managerAction?.stepId === step.id;
+
+            return (
+              <div key={step.id} className="px-4 py-3">
+                <div className="flex items-start gap-3">
+                  {/* Step indicator */}
+                  <div className="flex flex-col items-center flex-shrink-0 pt-0.5">
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
+                      style={{ background: step.is_completed ? "#10B981" : ss.color + "20", color: step.is_completed ? "white" : ss.color }}>
+                      {step.is_completed ? "✓" : idx + 1}
+                    </div>
+                    {idx < steps.length - 1 && (
+                      <div className="w-px mt-1 flex-1" style={{ minHeight: "12px", background: "var(--card-border)" }} />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold leading-snug" style={{ color: "var(--text-dark)", textDecoration: step.is_completed ? "line-through" : "none", opacity: step.is_completed ? 0.5 : 1 }}>
+                          {step.title}
+                        </p>
+                        {step.phase && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full mt-0.5 inline-block" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+                            {step.phase}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ss.color + "20", color: ss.color }}>
+                          {ss.label}
+                        </span>
+                        {step.resource_url && (
+                          <a href={step.resource_url} target="_blank" rel="noopener noreferrer"
+                            className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}
+                            title="Watch resource">
+                            ▶
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Manager feedback on rejected step */}
+                    {step.feedback && (effectiveStatus === "REJECTED" || effectiveStatus === "APPROVED") && (
+                      <p className="text-[10px] mt-1 px-2 py-1 rounded-lg" style={{ background: effectiveStatus === "APPROVED" ? "#D1FAE5" : "#FEE2E2", color: effectiveStatus === "APPROVED" ? "#065F46" : "#991B1B" }}>
+                        {effectiveStatus === "APPROVED" ? "✓" : "✗"} {step.feedback}
+                      </p>
+                    )}
+
+                    {/* Employee: submit proof CTA */}
+                    {canSubmit && !isExpanded && (
+                      <button onClick={() => { setExpandedStep(step.id); setActionError(""); }}
+                        className="mt-2 text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-all"
+                        style={{ background: "var(--primary)", color: "white" }}>
+                        📎 Submit Proof
+                      </button>
+                    )}
+
+                    {/* Employee: proof submission form */}
+                    {canSubmit && isExpanded && (
+                      <div className="mt-2 space-y-2 p-3 rounded-xl" style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
+                        <p className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                          Submit proof for: <span style={{ color: "var(--text-dark)" }}>{step.title}</span>
+                        </p>
+                        <input type="url"
+                          placeholder="Evidence link (GitHub / Dropbox URL) *"
+                          value={proofData[step.id]?.url ?? ""}
+                          onChange={e => setProofData(p => ({ ...p, [step.id]: { ...p[step.id], url: e.target.value, notes: p[step.id]?.notes ?? "" } }))}
+                          className="w-full text-[11px] px-3 py-2 rounded-xl focus:outline-none"
+                          style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }}
+                        />
+                        <textarea rows={2}
+                          placeholder="What did you learn? Key takeaways..."
+                          value={proofData[step.id]?.notes ?? ""}
+                          onChange={e => setProofData(p => ({ ...p, [step.id]: { ...p[step.id], notes: e.target.value, url: p[step.id]?.url ?? "" } }))}
+                          className="w-full text-[11px] px-3 py-2 rounded-xl resize-none focus:outline-none"
+                          style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }}
+                        />
+                        {actionError && <p className="text-[10px] text-red-600">{actionError}</p>}
+                        <div className="flex gap-2">
+                          <button onClick={() => submitProof(step.id)}
+                            disabled={submitting === step.id || !proofData[step.id]?.url}
+                            className="text-[11px] font-semibold px-4 py-1.5 rounded-xl text-white disabled:opacity-50 transition-all"
+                            style={{ background: "var(--primary)" }}>
+                            {submitting === step.id ? "Submitting…" : "Submit for Review"}
+                          </button>
+                          <button onClick={() => setExpandedStep(null)}
+                            className="text-[11px] px-3 py-1.5 rounded-xl"
+                            style={{ background: "var(--primary-pale)", color: "var(--text-muted)" }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Manager: review submitted step */}
+                    {canManagerAct && !isManagerActing && (
+                      <div className="flex gap-2 mt-2">
+                        {step.submission_url && (
+                          <a href={step.submission_url} target="_blank" rel="noopener noreferrer"
+                            className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+                            🔗 View Proof
+                          </a>
+                        )}
+                        <button onClick={() => { setManagerAction({ stepId: step.id, type: "approve" }); setFeedback(p => ({ ...p, [step.id]: "" })); setActionError(""); }}
+                          className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl text-white" style={{ background: "var(--primary)" }}>
+                          ✓ Approve
+                        </button>
+                        <button onClick={() => { setManagerAction({ stepId: step.id, type: "reject" }); setFeedback(p => ({ ...p, [step.id]: "" })); setActionError(""); }}
+                          className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl bg-red-100 text-red-700">
+                          ✗ Reject
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Manager: feedback form */}
+                    {canManagerAct && isManagerActing && (
+                      <div className="mt-2 space-y-2 p-3 rounded-xl" style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
+                        <p className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                          {managerAction?.type === "approve" ? "✓ Approving" : "✗ Rejecting"}: <span style={{ color: "var(--text-dark)" }}>{step.title}</span>
+                        </p>
+                        <textarea rows={2}
+                          placeholder={managerAction?.type === "approve" ? "Feedback (optional — 'Great work!')" : "Rejection reason (required)"}
+                          value={feedback[step.id] ?? ""}
+                          onChange={e => setFeedback(p => ({ ...p, [step.id]: e.target.value }))}
+                          className="w-full text-[11px] px-3 py-2 rounded-xl resize-none focus:outline-none"
+                          style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }}
+                        />
+                        {actionError && <p className="text-[10px] text-red-600">{actionError}</p>}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleManagerStepAction(step.id, managerAction!.type)}
+                            disabled={submitting === step.id}
+                            className="text-[11px] font-semibold px-4 py-1.5 rounded-xl text-white disabled:opacity-50 transition-all"
+                            style={{ background: managerAction?.type === "approve" ? "var(--primary)" : "#EF4444" }}>
+                            {submitting === step.id ? "Saving…" : `Confirm ${managerAction?.type === "approve" ? "Approve" : "Reject"}`}
+                          </button>
+                          <button onClick={() => setManagerAction(null)}
+                            className="text-[11px] px-3 py-1.5 rounded-xl"
+                            style={{ background: "var(--primary-pale)", color: "var(--text-muted)" }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
+}
+
+function buildInlineCTAs(tool_results: Record<string, any>): NotificationCTA[] {
+  const ctas: NotificationCTA[] = [];
+  const wfhData = tool_results?.get_wfh_requests;
+  const regData = tool_results?.get_regularization_requests;
+
+  if (wfhData?.wfh_requests) {
+    const pending = wfhData.wfh_requests.filter((r: any) => r.status === "PENDING");
+    pending.forEach((r: any) => {
+      ctas.push({ label: `✓ Approve WFH #${r.id}`, action: `Approve WFH #${r.id}`, style: "primary" });
+      ctas.push({ label: `✗ Reject WFH #${r.id}`, action: `Reject WFH #${r.id}`, style: "danger" });
+    });
+  }
+  if (regData?.requests) {
+    const pending = regData.requests.filter((r: any) => r.status === "PENDING");
+    pending.forEach((r: any) => {
+      ctas.push({ label: `✓ Approve Reg #${r.id}`, action: `Approve regularization #${r.id}`, style: "primary" });
+      ctas.push({ label: `✗ Reject Reg #${r.id}`, action: `Reject regularization #${r.id}`, style: "danger" });
+    });
+  }
+  return ctas;
 }
 
 function formatSessionDate(iso: string): string {
@@ -874,51 +1150,54 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
   return (
     <div
       className={`flex overflow-hidden ${embedded ? "h-full" : "h-screen"}`}
-      style={{ background: "#EBF9F6" }}
+      style={{ background: "#0E1117" }}
     >
-      {/* no blobs — Crextio is clean flat */}
-      <div className="hidden" />
 
       {/* \u2500\u2500 Sidebar \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */}
       <aside
         className="flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden relative z-20"
         style={{
-          width: embedded ? "0px" : sidebarOpen ? "260px" : "0px",
-          background: "#111111",
+          width: sidebarOpen ? "256px" : "0px",
+          background: "#0E1117",
           borderRight: "1px solid rgba(255,255,255,0.06)",
         }}
       >
         {/* Brand */}
-        <div className="flex-shrink-0 px-4 pt-5 pb-3">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white text-xs font-black flex-shrink-0 border border-white/10">
+        <div className="flex-shrink-0 px-4 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black flex-shrink-0"
+              style={{ background: "var(--primary)", color: "var(--primary-dark)" }}>
               ✦
             </div>
-            <span className="text-white text-sm font-bold tracking-tight truncate">
-              AI Assistant
-            </span>
+            <div>
+              <p className="text-white text-[13px] font-bold tracking-tight leading-tight">AI Assistant</p>
+              <p className="text-white/30 text-[10px]">HRMS Intelligence</p>
+            </div>
           </div>
 
           {/* New chat button */}
           <button
             onClick={startNewChat}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-white/10 text-white/70 border border-white/10 hover:bg-white/15 hover:text-white"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
+            style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLButtonElement).style.color = "white"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.7)"; }}
           >
             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            New chat
+            New conversation
           </button>
         </div>
 
         {/* Session list */}
-        <div className="flex-1 overflow-y-auto px-2 pb-2">
+        <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
           {grouped.length === 0 ? (
-            <p className="text-xs px-3 py-3 text-white/30">No previous chats</p>
+            <p className="text-[11px] px-2 py-2 text-white/25 italic">No conversations yet</p>
           ) : (
             grouped.map(({ label, items }) => (
-              <div key={label} className="mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 text-white/25">
+              <div key={label} className="mb-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.12em] px-2 py-1 mb-1" style={{ color: "rgba(255,255,255,0.2)" }}>
                   {label}
                 </p>
                 {items.map((s) => {
@@ -927,11 +1206,13 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                     <button
                       key={s.session_id}
                       onClick={() => loadSession(s)}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-all mb-0.5 truncate
-                        ${isActive
-                          ? "bg-white/15 text-white border-l-2 border-white/40"
-                          : "text-white/40 hover:bg-white/8 hover:text-white/70 border-l-2 border-transparent"
-                        }`}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-[11px] transition-all mb-0.5 truncate leading-snug`}
+                      style={isActive
+                        ? { background: "rgba(255,255,255,0.1)", color: "white", borderLeft: "2px solid var(--primary)" }
+                        : { color: "rgba(255,255,255,0.35)", borderLeft: "2px solid transparent" }
+                      }
+                      onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.65)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; } }}
+                      onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; } }}
                       title={sessionDisplayTitle(s)}
                     >
                       {sessionDisplayTitle(s)}
@@ -944,10 +1225,13 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         </div>
 
         {/* Sign out */}
-        <div className="flex-shrink-0 p-3 border-t border-white/8">
+        <div className="flex-shrink-0 px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
           <button
             onClick={() => { clearTokens(); navigate("/"); }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-all text-white/30 hover:text-white/60 hover:bg-white/8"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all"
+            style={{ color: "rgba(255,255,255,0.25)" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.55)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round"
@@ -959,37 +1243,44 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       </aside>
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 relative z-10">
+      <div className="flex flex-col flex-1 min-w-0 relative z-10" style={{ background: "#FAFAFA" }}>
 
         {!embedded && (
           <header
-            className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-            style={{ background: "#EBF9F6", borderBottom: "1px solid #D0EFE9" }}
+            className="flex items-center gap-3 px-5 py-0 flex-shrink-0"
+            style={{
+              background: "var(--primary-dark)",
+              minHeight: "56px",
+              boxShadow: "0 1px 0 rgba(255,255,255,0.07)",
+            }}
           >
             <button
               onClick={() => setSidebarOpen((v) => !v)}
-              className="w-8 h-8 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] flex items-center justify-center text-gray-500 hover:text-gray-700 transition-all flex-shrink-0"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all flex-shrink-0"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-7 h-7 rounded-xl bg-[#111111] flex items-center justify-center text-[#E8D44D] text-[10px] font-black">
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black border border-white/15" style={{ background: "var(--primary)", color: "var(--primary-dark)" }}>
                 ✦
               </div>
-              <span className="text-sm font-bold tracking-tight text-[#111111]">AI Assistant</span>
+              <div>
+                <p className="text-sm font-bold tracking-tight text-white leading-tight">AI Assistant</p>
+                {activeSession && <p className="text-[10px] text-white/40 truncate max-w-[160px]">{sessionDisplayTitle(activeSession)}</p>}
+              </div>
             </div>
 
             <div className="flex-1" />
 
             <button
               onClick={renotify}
-              className="relative flex-shrink-0 w-8 h-8 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] flex items-center justify-center text-gray-500 hover:text-gray-700 transition-all"
+              className="relative flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
               title="Show unread notifications"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
               {unreadCount > 0 && (
@@ -1001,8 +1292,8 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
 
             <div className="flex items-center gap-3 flex-shrink-0">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold tabular-nums text-gray-900">{time}</p>
-                <p className="text-[10px] text-gray-400">
+                <p className="text-xs font-bold tabular-nums text-white/80">{time}</p>
+                <p className="text-[10px] text-white/40">
                   {new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
                 </p>
               </div>
@@ -1027,6 +1318,25 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
           </header>
         )}
 
+        {/* Embedded sidebar toggle */}
+        {embedded && (
+          <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--card-border)" }}>
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
+              style={{ background: "var(--primary-pale)", color: "var(--primary)" }}
+              title={sidebarOpen ? "Hide sessions" : "Show sessions"}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+              {sidebarOpen ? "Hide history" : "Chat history"}
+            </span>
+          </div>
+        )}
+
         {/* Loading history */}
         {loadingHistory && (
           <div className="px-4 py-2 text-center text-xs flex-shrink-0 text-purple-600 bg-purple-50/60 border-b border-purple-100">
@@ -1035,25 +1345,28 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="max-w-2xl mx-auto space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-8">
+          <div className="space-y-4">
 
             {/* New chat welcome \u2014 quote + suggestions */}
             {messages.length === 1 && !loading && (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-[#111111] flex items-center justify-center text-[#E8D44D] font-black text-xl mb-6 shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-2xl font-black text-2xl mb-6 flex items-center justify-center" style={{ background: "var(--primary-dark)", color: "var(--primary)", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
                   ✦
                 </div>
-                <p className="text-base font-semibold max-w-md leading-snug mb-2 text-[#111111]">
+                <p className="text-lg font-semibold max-w-sm leading-snug mb-1.5" style={{ color: "#111827" }}>
                   "{quote}"
                 </p>
-                <p className="text-sm mb-8 text-gray-400">How can I help you today?</p>
-                <div className="flex flex-wrap gap-2 justify-center">
+                <p className="text-sm mb-8" style={{ color: "#9CA3AF" }}>What can I help you with today?</p>
+                <div className="flex flex-wrap gap-2 justify-center max-w-md">
                   {DEFAULT_SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => submit(s)}
-                      className="text-xs rounded-full px-4 py-2 transition-all bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] text-gray-600 hover:bg-[#E8D44D] hover:text-[#111111] hover:shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+                      className="text-xs rounded-xl px-4 py-2.5 transition-all font-medium"
+                      style={{ background: "white", color: "#374151", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid rgba(0,0,0,0.06)" }}
+                      onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "var(--primary-dark)"; b.style.color = "white"; b.style.border = "1px solid transparent"; }}
+                      onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "white"; b.style.color = "#374151"; b.style.border = "1px solid rgba(0,0,0,0.06)"; }}
                     >
                       {s}
                     </button>
@@ -1066,11 +1379,11 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
               msg.id === 0 ? null : msg.isNotification ? (
                 /* ── Notification bubble ── */
                 <div key={msg.id} className="flex justify-start">
-                  <div className="w-7 h-7 rounded-xl bg-[#E8D44D] flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-[#111111] text-sm font-bold">
+                  <div className="w-7 h-7 rounded-xl flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-sm font-bold" style={{ background: "var(--primary)", color: "var(--primary-dark)" }}>
                     🔔
                   </div>
                   <div
-                    className="max-w-[82%] px-4 py-3 text-sm bg-white shadow-[0_1px_4px_rgba(0,0,0,0.07)] cursor-pointer"
+                    className="max-w-[78%] px-5 py-4 text-sm bg-white cursor-pointer" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)", borderRadius: "6px 20px 20px 20px" }}
                     style={{ borderRadius: "4px 16px 16px 16px" }}
                     onClick={() => msg.notificationId && markNotificationRead(msg.notificationId)}
                   >
@@ -1079,7 +1392,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                     </div>
                     {msg.notifMetadata && msg.notifMetadata.actioned_by_name ? (
                       <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
-                        <span className="w-5 h-5 rounded-full bg-[#E8D44D] flex items-center justify-center text-[#111111] text-[9px] font-bold flex-shrink-0">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{ background: "var(--primary)", color: "var(--primary-dark)" }}>
                           {String(msg.notifMetadata.actioned_by_name).slice(0, 1).toUpperCase()}
                         </span>
                         <span>
@@ -1105,7 +1418,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                             }}
                             className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${cta.style === "danger"
                               ? "bg-red-100 text-red-700 hover:bg-red-200"
-                              : "bg-[#111111] text-white hover:bg-gray-800"
+                              : ""
                               }`}
                           >
                             {cta.label}
@@ -1132,25 +1445,71 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   {msg.role === "assistant" && (
-                    <div className="w-7 h-7 rounded-xl bg-[#111111] flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-[#E8D44D] text-[10px] font-black">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center mr-2.5 mt-1 flex-shrink-0 text-[10px] font-black shadow-sm" style={{ background: "var(--primary-dark)", color: "var(--primary)" }}>
                       ✦
                     </div>
                   )}
                   <div
-                    className={`max-w-[82%] px-4 py-3 text-sm ${msg.role === "user"
-                      ? "bg-[#111111] text-white"
+                    className={`max-w-[80%] text-sm ${msg.role === "user"
+                      ? "text-white px-4 py-3"
                       : msg.error
-                        ? "bg-red-50 text-gray-900 border border-red-100"
-                        : "bg-white shadow-[0_1px_4px_rgba(0,0,0,0.07)] text-gray-900"
+                        ? "bg-red-50 text-gray-800 border border-red-100 px-4 py-3.5"
+                        : "bg-white text-gray-800 px-5 py-4"
                       }`}
                     style={{
-                      borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "4px 16px 16px 16px",
+                      borderRadius: msg.role === "user" ? "20px 20px 6px 20px" : "6px 20px 20px 20px",
+                      background: msg.role === "user" ? "var(--primary-dark)" : msg.error ? undefined : "white",
+                      boxShadow: msg.role === "user" ? "none" : msg.error ? "none" : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
                     }}
                   >
                     {msg.role === "user" ? (
                       <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     ) : (
-                      <AssistantContent content={msg.content} />
+                      <>
+                        <AssistantContent content={msg.content} />
+                        {msg.tool_results && (() => {
+                          const inlineCTAs = buildInlineCTAs(msg.tool_results);
+                          const roadmapKeys = [
+                            "generate_skill_roadmap", "get_roadmap_details",
+                            "submit_roadmap_step", "approve_roadmap_step",
+                            "reject_roadmap_step", "approve_roadmap", "reject_roadmap",
+                          ];
+                          const roadmapData = roadmapKeys
+                            .map(k => msg.tool_results![k])
+                            .find(v => v?.id && v?.steps);
+                          const pendingList: any[] | undefined =
+                            msg.tool_results!["get_pending_roadmap_approvals"]?.pending_roadmaps;
+                          const roadmapListItem = msg.tool_results!["get_skill_roadmaps"]?.roadmaps?.[0];
+                          const resolvedRoadmap = roadmapData ?? (pendingList?.[0]) ?? null;
+                          return (
+                            <>
+                              {inlineCTAs.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+                                  {inlineCTAs.map((cta) => (
+                                    <button
+                                      key={cta.label}
+                                      onClick={() => submit(cta.action)}
+                                      className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${cta.style === "danger" ? "bg-red-100 text-red-700 hover:bg-red-200" : "text-white"}`}
+                                      style={cta.style !== "danger" ? { background: "var(--primary-dark)" } : undefined}
+                                    >
+                                      {cta.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {resolvedRoadmap && (
+                                <RoadmapChatCard
+                                  roadmap={resolvedRoadmap}
+                                  role={userProfile?.role ?? "employee"}
+                                  token={getAccess() ?? ""}
+                                  onAction={submit}
+                                  employeeId={userProfile?.employee_id}
+                                />
+                              )}
+                            </>
+                          );
+                        })()}
+                      </>
                     )}
                   </div>
                 </div>
@@ -1159,14 +1518,14 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
             {/* Typing indicator */}
             {loading && (
               <div className="flex justify-start">
-                <div className="w-7 h-7 rounded-xl bg-[#111111] flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-[#E8D44D] text-[10px] font-black">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center mr-2.5 mt-1 flex-shrink-0 text-[10px] font-black shadow-sm" style={{ background: "var(--primary-dark)", color: "var(--primary)" }}>
                   ✦
                 </div>
-                <div className="px-4 py-3 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.07)]" style={{ borderRadius: "4px 16px 16px 16px" }}>
+                <div className="px-5 py-4 bg-white" style={{ borderRadius: "6px 20px 20px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)" }}>
                   <div className="flex gap-1 items-center h-4">
-                    <span className="w-2 h-2 rounded-full bg-[#E8D44D] animate-bounce [animation-delay:-0.3s]" />
-                    <span className="w-2 h-2 rounded-full bg-[#E8D44D] animate-bounce [animation-delay:-0.15s]" />
-                    <span className="w-2 h-2 rounded-full bg-[#E8D44D] animate-bounce" />
+                    <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:-0.3s]" style={{ background: "var(--primary)" }} />
+                    <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:-0.15s]" style={{ background: "var(--primary)" }} />
+                    <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: "var(--primary)" }} />
                   </div>
                 </div>
               </div>
@@ -1177,32 +1536,32 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         </div>
 
         {/* Input bar */}
-        <div className="px-4 py-4 flex-shrink-0" style={{ background: "#EBF9F6", borderTop: "1px solid #D0EFE9" }}>
+        <div className="px-6 py-4 flex-shrink-0" style={{ background: "#FAFAFA", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
           <form
             onSubmit={(e) => { e.preventDefault(); submit(input); }}
-            className="max-w-2xl mx-auto"
           >
-            <div className="flex items-end gap-2 px-4 py-3 rounded-2xl transition-all bg-white shadow-[0_1px_4px_rgba(0,0,0,0.07)] focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
+            <div className="flex items-end gap-3 px-4 py-3 rounded-2xl transition-all" style={{ background: "white", boxShadow: "0 0 0 1px rgba(0,0,0,0.07), 0 4px 20px rgba(0,0,0,0.06)" }}>
               <textarea
                 ref={textareaRef}
                 rows={1}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything — leave, balance, approvals…"
-                className="flex-1 bg-transparent text-sm resize-none outline-none py-0.5 min-h-[22px] text-gray-900 placeholder-gray-400"
+                placeholder="Ask anything — leave, attendance, payroll…"
+                className="flex-1 bg-transparent text-sm resize-none outline-none py-1 min-h-[22px] text-gray-900 placeholder-gray-400 leading-relaxed"
               />
               <button
                 type="submit"
                 disabled={!input.trim() || loading}
-                className="flex-shrink-0 w-8 h-8 rounded-xl bg-[#111111] flex items-center justify-center transition-all mb-0.5 disabled:opacity-30 hover:bg-gray-800"
+                className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all mb-0.5 disabled:opacity-25"
+                style={{ background: input.trim() && !loading ? "var(--primary-dark)" : "#E5E7EB" }}
               >
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke={input.trim() && !loading ? "white" : "#9CA3AF"} strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </button>
             </div>
-            <p className="text-center text-[10px] mt-1.5 text-gray-400">
+            <p className="text-center text-[10px] mt-2" style={{ color: "rgba(0,0,0,0.25)" }}>
               Enter to send · Shift+Enter for new line
             </p>
           </form>

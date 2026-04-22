@@ -78,16 +78,16 @@ export default function EmployeePage({ token, role }: EmployeePageProps) {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: "#EBF9F6" }}>
+    <div className="h-full overflow-y-auto" style={{ background: "var(--page-bg)" }}>
       <div className="p-6 max-w-6xl mx-auto">
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h2 className="text-xl font-bold text-[#111111]">People Directory</h2>
+            <h2 className="text-xl font-bold" style={{ color: "var(--text-dark)" }}>People Directory</h2>
             <p className="text-xs text-gray-400 mt-0.5">{totalCount} employees</p>
           </div>
           <div
             className="flex items-center gap-2 px-3 py-2 rounded-full text-xs text-gray-400"
-            style={{ background: "#FFFFFF", border: "1px solid #D0EFE9" }}
+            style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
           >
             <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/><path d="M21 21l-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
             <input
@@ -101,34 +101,35 @@ export default function EmployeePage({ token, role }: EmployeePageProps) {
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-5">
-          <div className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-            <div className="text-3xl font-bold text-[#111111]">{totalCount || employees.length}</div>
+          <div className="rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.07)]" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+            <div className="text-3xl font-bold" style={{ color: "var(--text-dark)" }}>{totalCount || employees.length}</div>
             <div className="text-xs text-gray-400 mt-1">Total</div>
           </div>
-          <div className="bg-[#E8D44D] rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-            <div className="text-3xl font-bold text-[#111111]">{employees.filter(e => e.role === "manager").length}</div>
-            <div className="text-xs text-[#111111]/60 mt-1">Managers</div>
+          <div className="rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.07)]" style={{ background: "var(--primary)", color: "white" }}>
+            <div className="text-3xl font-bold">{employees.filter(e => e.role === "manager").length}</div>
+            <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>Managers</div>
           </div>
-          <div className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-            <div className="text-3xl font-bold text-[#111111]">{[...new Set(employees.map(e => e.department?.name).filter(Boolean))].length}</div>
+          <div className="rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.07)]" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+            <div className="text-3xl font-bold" style={{ color: "var(--text-dark)" }}>{[...new Set(employees.map(e => e.department?.name).filter(Boolean))].length}</div>
             <div className="text-xs text-gray-400 mt-1">Departments</div>
           </div>
-          <div className="bg-[#111111] rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-            <div className="text-3xl font-bold text-white">{totalPages}</div>
-            <div className="text-xs text-white/40 mt-1">Pages</div>
+          <div className="rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.07)]" style={{ background: "var(--primary-dark)", color: "white" }}>
+            <div className="text-3xl font-bold">{totalPages}</div>
+            <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Pages</div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.07)] overflow-hidden" style={{ border: "1px solid #D0EFE9" }}>
-          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid #E8F5F1" }}>
-            <div className="flex items-center gap-1 rounded-full p-1" style={{ background: "#F0FDFB", border: "1px solid #E2F4F0" }}>
+        <div className="rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.07)] overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--card-border)" }}>
+            <div className="flex items-center gap-1 rounded-full p-1" style={{ background: "var(--primary-pale)", border: "1px solid var(--card-border)" }}>
               {ROLES.map(r => (
                 <button
                   key={r}
                   onClick={() => setFilterRole(r)}
                   className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all capitalize ${
-                    filterRole === r ? "bg-[#111111] text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    filterRole === r ? "text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
                   }`}
+                  style={filterRole === r ? { background: "var(--primary-dark)" } : undefined}
                 >
                   {r}
                 </button>
@@ -187,7 +188,7 @@ export default function EmployeePage({ token, role }: EmployeePageProps) {
           </div>
 
           {totalPages > 1 && (
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderTop: "1px solid #E8F5F1" }}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderTop: "1px solid var(--card-border)" }}>
               <p className="text-xs text-gray-400">
                 Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
               </p>
@@ -207,8 +208,9 @@ export default function EmployeePage({ token, role }: EmployeePageProps) {
                       key={pg}
                       onClick={() => setPage(pg)}
                       className={`w-8 h-8 rounded-xl text-xs font-semibold transition-all ${
-                        pg === page ? "bg-[#111111] text-white" : "text-gray-500 hover:bg-gray-100"
+                        pg === page ? "text-white" : "text-gray-500 hover:bg-gray-100"
                       }`}
+                      style={pg === page ? { background: "var(--primary-dark)" } : undefined}
                     >
                       {pg}
                     </button>
