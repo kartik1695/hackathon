@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
+=======
+const BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api";
+>>>>>>> 0e8e6cee7f342a484ab1a3cb521617f3c3de0072
 export const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? "ws://localhost:8001";
 
 export interface TokenPair {
@@ -13,9 +17,10 @@ export interface ChatResponse {
   collecting_index?: number;
   leave_items?: unknown[];
   policy_violations?: unknown[];
+  tool_results?: Record<string, any>;
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
+// \u2500\u2500 Auth \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 export async function login(email: string, password: string): Promise<TokenPair> {
   const res = await fetch(`${BASE}/auth/token/`, {
@@ -41,12 +46,13 @@ export async function refreshToken(refresh: string): Promise<string> {
   return data.access;
 }
 
-// ── Me ────────────────────────────────────────────────────────────────────────
+// \u2500\u2500 Me \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 export interface UserProfile {
   name: string;
   role: string;
   title: string;
+  employee_id?: number;
   department?: { name: string };
 }
 
@@ -60,11 +66,12 @@ export async function fetchMe(token: string): Promise<UserProfile | null> {
     name: data.user?.name || "",
     role: data.role || "",
     title: data.title || "",
+    employee_id: data.id,
     department: data.department,
   };
 }
 
-// ── Sessions ──────────────────────────────────────────────────────────────────
+// \u2500\u2500 Sessions \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 export interface SessionMeta {
   session_id: string;
@@ -100,7 +107,11 @@ export async function fetchSessionMessages(token: string, sessionId: string): Pr
   return data.messages as BackendMessage[];
 }
 
+<<<<<<< HEAD
 // ── Notifications ─────────────────────────────────────────────────────────────
+=======
+// \u2500\u2500 Notifications \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+>>>>>>> 0e8e6cee7f342a484ab1a3cb521617f3c3de0072
 
 export interface NotificationItem {
   id: number;
@@ -146,7 +157,11 @@ export async function renotifyLeave(token: string, leaveId: number): Promise<Ren
   return data as RenotifyResult;
 }
 
+<<<<<<< HEAD
 // ── Chat ──────────────────────────────────────────────────────────────────────
+=======
+// \u2500\u2500 Chat \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+>>>>>>> 0e8e6cee7f342a484ab1a3cb521617f3c3de0072
 
 export async function sendMessage(
   token: string,

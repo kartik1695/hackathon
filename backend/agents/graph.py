@@ -48,6 +48,12 @@ _POLICY_FLOW = [
     "agents.nodes.llm_generate",
 ]
 
+# Upskilling: MCP tools handle generation/approval, LLM synthesises the response
+_UPSKILL_FLOW = [
+    "agents.nodes.mcp_tools",
+    "agents.nodes.llm_generate",
+]
+
 # Leave action intents (approve/reject/cancel/status/comp off/renotify) — no rag/spof needed
 _LEAVE_ACTION_FLOW = [
     "agents.nodes.mcp_tools",
@@ -108,6 +114,8 @@ def _get_flow(intent: str) -> list[str]:
         return _POLICY_FLOW
     if intent == "employee_query":
         return _EMPLOYEE_FLOW
+    if intent == "skill_roadmap":
+        return _UPSKILL_FLOW
     if intent in (
         "approve_leave", "reject_leave", "cancel_leave",
         "leave_status", "pending_approvals",

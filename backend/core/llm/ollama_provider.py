@@ -48,7 +48,7 @@ class OllamaProvider(BaseLLMProvider):
             headers["Authorization"] = f"Bearer {self._api_key}"
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=120) as resp:
                 data = resp.read().decode("utf-8", errors="ignore")
         except urllib.error.HTTPError as exc:
             raw = exc.read().decode("utf-8", errors="ignore") if exc.fp else ""

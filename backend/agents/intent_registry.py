@@ -168,6 +168,25 @@ INTENTS = {
             "How is John's rating",
         ],
     },
+    "skill_roadmap": {
+        "description": "User wants to create, view, approve, reject, or update an upskilling roadmap or roadmap step.",
+        "examples": [
+            "I want to learn Python, create a roadmap for me",
+            "Show me my upskilling roadmaps",
+            "Create a roadmap for React development",
+            "I want to upskill in Machine Learning",
+            "Show progress of my roadmaps",
+            "I've finished the first step of my React roadmap",
+            "Submit step 1 of my Python roadmap for review",
+            "Approve step 2 for Sarah",
+            "Reject step 3 for John as the link is not working",
+            "Approve roadmap #5",
+            "Reject roadmap #5 because it doesn't align with team goals",
+            "Show pending roadmap approvals",
+            "What roadmaps need my approval?",
+            "Resubmit step 3 of my Kubernetes roadmap",
+        ],
+    },
     "nl_query": {
         "description": "General HRMS question not categorised as employee, leave, or policy.",
         "examples": [

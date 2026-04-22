@@ -384,7 +384,7 @@ const QUOTES = [
   "The only place where success comes before work is in the dictionary.",
   "Nothing will work unless you do.",
   "Start where you are. Use what you have. Do what you can.",
-  "Your limitation—it's only your imagination.",
+  "Your limitation\u2014it's only your imagination.",
   "Push yourself, because no one else is going to do it for you.",
   "Great minds discuss ideas; average minds discuss events; small minds discuss people.",
   "You are never too old to set another goal or to dream a new dream.",
@@ -435,7 +435,7 @@ const QUOTES = [
   "In the end, it's not the years in your life that count. It's the life in your years.",
   "It is during our darkest moments that we must focus to see the light.",
   "You will face many defeats in life, but never let yourself be defeated.",
-  "The greatest glory is not in never failing, but in rising every time we fail.",
+  "The greatest glory is not in never failing, but in rising every time we fall.",
   "In the beginning was the word. In the end is the deed.",
   "Never let the fear of striking out keep you from playing the game.",
   "Money and success don't change people; they merely amplify what is already there.",
@@ -466,6 +466,60 @@ function getRandomQuote(): string {
   return QUOTES[Math.floor(Math.random() * QUOTES.length)];
 }
 
+function RoadmapTracker({ roadmap, onCompleteStep }: { roadmap: any, onCompleteStep: (stepId: number) => void }) {
+  return (
+    <div className="mt-4 p-4 rounded-xl border border-[#E8D9CC] bg-[#FDFBF9] shadow-sm">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 rounded-lg bg-[#E8622A] text-white">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-[#2C1810]">{roadmap.skill_name} Roadmap</h3>
+          <p className="text-[10px] text-[#8B6147] uppercase tracking-wider font-semibold">
+            Status: <span className={roadmap.status === 'COMPLETED' ? 'text-green-600' : 'text-[#E8622A]'}>{roadmap.status}</span>
+          </p>
+        </div>
+      </div>
+
+      <p className="text-xs text-[#6B4F3A] mb-4 leading-relaxed">{roadmap.description}</p>
+
+      <div className="space-y-3">
+        {roadmap.steps?.map((step: any, index: number) => (
+          <div key={step.id} className="flex gap-3 items-start group">
+            <div className="flex flex-col items-center flex-shrink-0 mt-1">
+              <button
+                onClick={() => !step.is_completed && onCompleteStep(step.id)}
+                disabled={step.is_completed}
+                className={`w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all ${step.is_completed
+                  ? "bg-green-500 border-green-500 text-white"
+                  : "border-[#E8D9CC] text-transparent hover:border-[#E8622A]"
+                  }`}
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              {index < roadmap.steps.length - 1 && (
+                <div className={`w-0.5 h-8 mt-1 ${step.is_completed ? "bg-green-200" : "bg-[#F2EDE8]"}`} />
+              )}
+            </div>
+            <div className="flex-1">
+              <h4 className={`text-xs font-semibold ${step.is_completed ? "text-[#B8977E] line-through" : "text-[#2C1810]"}`}>
+                {step.title}
+              </h4>
+              <p className={`text-[11px] mt-0.5 leading-relaxed ${step.is_completed ? "text-[#D1BEB0]" : "text-[#8B6147]"}`}>
+                {step.description}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function formatSessionDate(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
@@ -481,7 +535,7 @@ function sessionDisplayTitle(s: SessionMeta): string {
   // Fallback: formatted datetime
   const d = new Date(s.last_active_at);
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
-    " · " +
+    " \u00b7 " +
     d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
@@ -779,14 +833,14 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       setSessionId(data.session_id);
       setActiveSessionId(data.session_id);
       setCollectionState(newCS);
-      const reply = data.reply || "✓ Done.";
+      const reply = data.reply || "\u2713 Done.";
       setMessages((prev) => [
         ...prev,
-        { id: nextId(), role: "assistant" as const, content: reply },
+        { id: nextId(), role: "assistant" as const, content: reply, tool_results: data.tool_results },
       ]);
 
       // Refresh session list so new title appears
-      fetchSessions(token).then(setSessions).catch(() => {});
+      fetchSessions(token).then(setSessions).catch(() => { });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong";
       if (
@@ -825,7 +879,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       {/* no blobs — Crextio is clean flat */}
       <div className="hidden" />
 
-      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
+      {/* \u2500\u2500 Sidebar \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */}
       <aside
         className="flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden relative z-20"
         style={{
@@ -984,7 +1038,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         <div className="flex-1 overflow-y-auto px-4 py-6">
           <div className="max-w-2xl mx-auto space-y-4">
 
-            {/* New chat welcome — quote + suggestions */}
+            {/* New chat welcome \u2014 quote + suggestions */}
             {messages.length === 1 && !loading && (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-[#111111] flex items-center justify-center text-[#E8D44D] font-black text-xl mb-6 shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
@@ -1049,11 +1103,10 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                               }
                               submit(cta.action);
                             }}
-                            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${
-                              cta.style === "danger"
-                                ? "bg-red-100 text-red-700 hover:bg-red-200"
-                                : "bg-[#111111] text-white hover:bg-gray-800"
-                            }`}
+                            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${cta.style === "danger"
+                              ? "bg-red-100 text-red-700 hover:bg-red-200"
+                              : "bg-[#111111] text-white hover:bg-gray-800"
+                              }`}
                           >
                             {cta.label}
                           </button>
@@ -1074,34 +1127,33 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                   </div>
                 </div>
               ) : // hide the WELCOME placeholder bubble
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="w-7 h-7 rounded-xl bg-[#111111] flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-[#E8D44D] text-[10px] font-black">
-                    ✦
-                  </div>
-                )}
                 <div
-                  className={`max-w-[82%] px-4 py-3 text-sm ${
-                    msg.role === "user"
+                  key={msg.id}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  {msg.role === "assistant" && (
+                    <div className="w-7 h-7 rounded-xl bg-[#111111] flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-[#E8D44D] text-[10px] font-black">
+                      ✦
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[82%] px-4 py-3 text-sm ${msg.role === "user"
                       ? "bg-[#111111] text-white"
                       : msg.error
-                      ? "bg-red-50 text-gray-900 border border-red-100"
-                      : "bg-white shadow-[0_1px_4px_rgba(0,0,0,0.07)] text-gray-900"
-                  }`}
-                  style={{
-                    borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "4px 16px 16px 16px",
-                  }}
-                >
-                  {msg.role === "user" ? (
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                  ) : (
-                    <AssistantContent content={msg.content} />
-                  )}
+                        ? "bg-red-50 text-gray-900 border border-red-100"
+                        : "bg-white shadow-[0_1px_4px_rgba(0,0,0,0.07)] text-gray-900"
+                      }`}
+                    style={{
+                      borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "4px 16px 16px 16px",
+                    }}
+                  >
+                    {msg.role === "user" ? (
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    ) : (
+                      <AssistantContent content={msg.content} />
+                    )}
+                  </div>
                 </div>
-              </div>
             ))}
 
             {/* Typing indicator */}

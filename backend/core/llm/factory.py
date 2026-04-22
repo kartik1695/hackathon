@@ -6,6 +6,7 @@ from .anthropic_provider import AnthropicProvider
 from .gemini_provider import GeminiProvider
 from .ollama_provider import OllamaProvider
 from .openai_provider import OpenAIProvider
+from .azure_openai_provider import AzureOpenAIProvider
 
 logger = logging.getLogger("hrms")
 
@@ -14,6 +15,7 @@ _REGISTRY: dict[str, type[BaseLLMProvider]] = {
     "anthropic": AnthropicProvider,
     "gemini": GeminiProvider,
     "ollama": OllamaProvider,
+    "azure_openai": AzureOpenAIProvider,
 }
 
 

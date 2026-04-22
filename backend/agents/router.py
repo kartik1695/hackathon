@@ -177,6 +177,10 @@ def route(state: AgentState) -> str:
 
     if any(k in q for k in ("burnout", "overworked", "stress", "overtime", "fatigue", "exhausted")):
         return "burnout_check"
+    if any(k in q for k in ("skill", "roadmap", "upskill", "learn ", "step ",
+                              "approve roadmap", "reject roadmap", "resubmit step",
+                              "pending roadmap", "roadmap approval")):
+        return "skill_roadmap"
     if any(k in q for k in ("review", "performance review", "appraisal", "360", "feedback", "rating", "goal")):
         return "review_summary"
     if any(k in q for k in ("policy", "leave policy", "security policy", "handbook", "rules", "guidelines", "entitlement",

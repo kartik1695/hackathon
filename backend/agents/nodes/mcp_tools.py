@@ -33,6 +33,7 @@ _TOOLS_BY_INTENT: dict[str, list[str]] = {
     # Other intents
     "burnout_check": ["get_attendance_summary", "get_attendance_anomalies"],
     "review_summary": ["get_employee_goals", "get_review_cycles"],
+    "skill_roadmap": ["generate_skill_roadmap", "get_skill_roadmaps", "get_roadmap_details", "submit_roadmap_step", "approve_roadmap_step", "reject_roadmap_step", "approve_roadmap", "reject_roadmap", "get_pending_roadmap_approvals"],
     "nl_query": ["find_employee_by_name", "get_employee_profile"],
     # Employee directory / org queries — planner picks the right tool
     "employee_query": [],  # fully LLM-planned; see _plan_next_tool_call
@@ -364,6 +365,17 @@ def _plan_next_tool_call(
         "get_largest_teams         — managers ranked by direct report count. Use for 'who has most reports', 'largest team'.\n"
         "get_new_hires             — recent joiners. Use input_data.days or parse 'this month'/'this year' from query.\n"
         "get_employees_by_role     — all employees with a role. Use input_data.role = manager|hr|cfo|employee|admin.\n"
+        "\n"
+        "=== UPSKILLING TOOLS ===\n"
+        "generate_skill_roadmap    — create a new LLM-generated roadmap for a skill. Use input_data.skill_name.\n"
+        "get_skill_roadmaps        — list all upskilling roadmaps for an employee.\n"
+        "get_roadmap_details       — get all steps for a specific roadmap. Use input_data.roadmap_id.\n"
+        "submit_roadmap_step       — employee submits a specific step for review with evidence. Use input_data.step_id and optional input_data.notes/url.\n"
+        "approve_roadmap_step      — manager approves a submitted step. Use input_data.step_id and optional input_data.feedback.\n"
+        "reject_roadmap_step       — manager rejects a step with mandatory feedback. Use input_data.step_id and input_data.feedback.\n"
+        "approve_roadmap           — manager approves a PENDING_APPROVAL roadmap so the employee can start. Use input_data.roadmap_id.\n"
+        "reject_roadmap            — manager rejects a PENDING_APPROVAL roadmap. Use input_data.roadmap_id and input_data.feedback.\n"
+        "get_pending_roadmap_approvals — manager views all roadmaps from direct reports that need approval.\n"
         "\n"
         "=== PLANNING RULES ===\n"
         "1. Use only tools from 'available_tools'.\n"
@@ -731,6 +743,75 @@ def _parse_action_intent_input(state: AgentState, intent: str) -> dict:
         return input_data
 
 
+def _parse_upskill_intent_input(state: AgentState) -> dict:
+    """
+    For `skill_roadmap` intent: extract skill_name, roadmap_id, step_id, action, and feedback.
+    Handles: create roadmap, approve/reject roadmap, submit/approve/reject/resubmit step,
+    show roadmaps, show pending approvals.
+    """
+    import re as _re
+    input_data = state.get("input_data") or {}
+    query = str(input_data.get("query") or "").strip()
+
+    if not query:
+        return input_data
+
+    result = dict(input_data)
+    ql = query.lower()
+
+    # Regex for IDs
+    roadmap_match = _re.search(r'roadmap\s*#?(\d+)', ql)
+    step_match = _re.search(r'step\s*#?(\d+)', ql)
+    
+    if roadmap_match:
+        result["roadmap_id"] = int(roadmap_match.group(1))
+    if step_match:
+        result["step_id"] = int(step_match.group(1))
+
+    # Extract URL evidence (GitHub or Dropbox)
+    url_match = _re.search(r'(https?://[^\s]*(?:github\.com|dropbox\.com)[^\s]*)', ql)
+    if url_match:
+        result["url"] = url_match.group(1).rstrip(".,!?;:")
+
+    # Extract feedback for rejection (text after "because", "feedback:", "reason:")
+    feedback_match = _re.search(r'(?:because|feedback[:\s]|reason[:\s]|with feedback[:\s])\s*(.+)', ql)
+    if feedback_match:
+        result["feedback"] = feedback_match.group(1).strip().rstrip(".,!?")
+
+    # Detect action verb to help the LLM planner
+    if "resubmit" in ql or "re-submit" in ql or "revise" in ql:
+        result["_action_hint"] = "resubmit_step"
+    elif "approve roadmap" in ql:
+        result["_action_hint"] = "approve_roadmap"
+    elif "reject roadmap" in ql:
+        result["_action_hint"] = "reject_roadmap"
+    elif "pending roadmap" in ql or "roadmap approval" in ql or "roadmaps need my approval" in ql:
+        result["_action_hint"] = "get_pending_roadmap_approvals"
+
+    # LLM fallback for complex queries (skill name extraction, etc.)
+    try:
+        from core.llm.base import LLMMessage
+        from core.llm.factory import LLMProviderFactory
+        import json
+        provider = LLMProviderFactory.get_provider()
+        
+        system = (
+            "Extract upskilling parameters from the user's query.\n"
+            "Return ONLY JSON:\n"
+            '  {"skill_name": "<string>", "roadmap_id": <int>, "step_id": <int>, "feedback": "<string>", "url": "<string>"}\n'
+            "Set missing fields to null."
+        )
+        resp = provider.complete([LLMMessage(role="system", content=system), LLMMessage(role="user", content=query)], temperature=0.0)
+        
+        # Use our robust json extractor
+        obj = _first_json_object(resp.content)
+        if obj:
+            return {**result, **{k: v for k, v in obj.items() if v is not None}}
+        return result
+    except Exception:
+        return result
+
+
 def _resolve_employee_by_name(name: str, *, manager_employee_id: int, requester_id: int, requester_role: str) -> int | None:
     """
     Given a name like 'Guru Laxmi', find the matching Employee pk among the
@@ -764,6 +845,7 @@ def run(state: AgentState) -> AgentState:
         import mcp.tools.employee_tools
         import mcp.tools.leave_tools
         import mcp.tools.performance_tools
+        import mcp.tools.upskilling_tools
         from mcp.registry import get, list_tools
     except ImportError as exc:
         logger.exception("MCP tools import failed")
@@ -789,6 +871,9 @@ def run(state: AgentState) -> AgentState:
         "approve_leave_request", "reject_leave_request",
         "cancel_leave_request", "request_comp_off",
         "approve_comp_off", "reject_comp_off", "renotify_manager",
+        "complete_roadmap_step", "generate_skill_roadmap",
+        "submit_roadmap_step", "approve_roadmap_step", "reject_roadmap_step",
+        "approve_roadmap", "reject_roadmap",
     }
     for _wt in _WRITE_TOOLS:
         tool_results.pop(_wt, None)
@@ -831,12 +916,15 @@ def run(state: AgentState) -> AgentState:
                     "regularize_attendance", "apply_wfh", "show_penalties"):
         tool_names = _TOOLS_BY_INTENT.get(intent, [])
         apply_input = _parse_action_intent_input(state, intent)
+    elif intent == "skill_roadmap":
+        tool_names = _TOOLS_BY_INTENT.get(intent, [])
+        apply_input = _parse_upskill_intent_input(state)
     else:
         tool_names = _TOOLS_BY_INTENT.get(intent, [])
         apply_input = state.get("input_data") or {}
 
     call_specs: list[dict] = []
-    if intent in ("nl_query", "employee_query"):
+    if intent in ("nl_query", "employee_query", "skill_roadmap"):
         already_called: list[str] = []
         for _ in range(6):  # employee queries may need more hops
             spec = _plan_next_tool_call(state, apply_input, tool_results, list_tools, already_called)

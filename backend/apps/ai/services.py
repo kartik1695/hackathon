@@ -111,14 +111,19 @@ class ChatService:
 
         if reply:
             # Persist assistant message to DB
+            # Strategy: only save tools FRESHLY called this turn to the DB snapshot.
+            # This prevents UI components (like RoadmapTracker) from duplicating in every subsequent turn.
+            tools_this_turn = result.get("_tools_called_this_turn") or []
+            fresh_results = {k: v for k, v in (result.get("tool_results") or {}).items() if k in tools_this_turn}
+            
             self._ctx.add_assistant_message(
                 session,
                 reply=reply,
                 intent=str(result.get("intent") or ""),
-                tool_snapshot=result.get("tool_results") or {},
+                tool_snapshot=fresh_results,
                 retrieved_docs=result.get("retrieved_docs") or [],
             )
-            # Push completed turn to Redis memory cache (both query + reply + tool results)
+            # Push completed turn to Redis memory cache (merged tool results for LLM context)
             self._mem.push_turn(
                 session_id_str,
                 user_query=message,
