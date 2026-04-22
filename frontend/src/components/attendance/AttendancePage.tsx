@@ -1,15 +1,15 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import RegularizationForm from "./RegularizationForm";
 import WFHForm from "./WFHForm";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
-const darkTeal = "#0D3D36";
-const teal = "#0D9488";
-const tealPale = "#CCFBF1";
-const pageBg = "#EBF9F6";
-const textMuted = "#6B9E9A";
-const cardBorder = "#D0EFE9";
+const darkTeal = "var(--primary-dark)";
+const teal = "var(--primary)";
+const tealPale = "var(--primary-pale)";
+const pageBg = "var(--page-bg)";
+const textMuted = "var(--text-muted)";
+const cardBorder = "var(--card-border)";
 
 interface AttendancePageProps { token: string; role: string; }
 
@@ -86,7 +86,7 @@ async function apiPost(token: string, path: string, body?: unknown) {
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl ${className}`} style={{ background: "#FFFFFF", border: `1px solid ${cardBorder}` }}>
+    <div className={`rounded-2xl ${className}`} style={{ background: "var(--card-bg)", border: `1px solid ${cardBorder}` }}>
       {children}
     </div>
   );
@@ -103,6 +103,14 @@ export default function AttendancePage({ token, role }: AttendancePageProps) {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<Modal>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Filters
+  const [regFromDate, setRegFromDate] = useState("");
+  const [regToDate, setRegToDate] = useState("");
+  const [regName, setRegName] = useState("");
+  const [wfhFromDate, setWfhFromDate] = useState("");
+  const [wfhToDate, setWfhToDate] = useState("");
+  const [wfhName, setWfhName] = useState("");
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -145,6 +153,45 @@ export default function AttendancePage({ token, role }: AttendancePageProps) {
   async function handleRejectWFH(id: number) {
     await apiPost(token, `/attendance/wfh/${id}/reject/`, { reason: "Not approved" });
     showToast("WFH rejected", false); load();
+  }
+
+  const filteredRegs = useMemo(() => regularizations.filter(r => {
+    if (regFromDate && r.date < regFromDate) return false;
+    if (regToDate && r.date > regToDate) return false;
+    if (regName && !(r.employee_name ?? "").toLowerCase().includes(regName.toLowerCase())) return false;
+    return true;
+  }), [regularizations, regFromDate, regToDate, regName]);
+
+  const filteredWFH = useMemo(() => wfhRequests.filter(w => {
+    const firstDate = Array.isArray(w.dates) ? w.dates[0] : String(w.dates);
+    if (wfhFromDate && firstDate < wfhFromDate) return false;
+    if (wfhToDate && firstDate > wfhToDate) return false;
+    if (wfhName && !(w.employee_name ?? "").toLowerCase().includes(wfhName.toLowerCase())) return false;
+    return true;
+  }), [wfhRequests, wfhFromDate, wfhToDate, wfhName]);
+
+  function exportRegCSV() {
+    const headers = isManager ? ["Employee", "Date", "Checkout", "Status", "Reason"] : ["Date", "Checkout", "Status", "Reason"];
+    const rows = filteredRegs.map(r => isManager
+      ? [r.employee_name ?? "", r.date, r.requested_check_out ?? "", r.status, `"${(r.reason ?? "").replace(/"/g, '""')}"`]
+      : [r.date, r.requested_check_out ?? "", r.status, `"${(r.reason ?? "").replace(/"/g, '""')}"`]
+    );
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "regularizations.csv"; a.click();
+  }
+
+  function exportWFHCSV() {
+    const headers = isManager ? ["Employee", "Dates", "Status", "Reason"] : ["Dates", "Status", "Reason"];
+    const rows = filteredWFH.map(w => {
+      const dates = Array.isArray(w.dates) ? w.dates.join(";") : String(w.dates);
+      return isManager
+        ? [w.employee_name ?? "", dates, w.status, `"${(w.reason ?? "").replace(/"/g, '""')}"`]
+        : [dates, w.status, `"${(w.reason ?? "").replace(/"/g, '""')}"`];
+    });
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "wfh_requests.csv"; a.click();
   }
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -287,7 +334,7 @@ export default function AttendancePage({ token, role }: AttendancePageProps) {
 
           <div className="p-5">
             {loading ? (
-              <div className="space-y-2">{[1,2,3,4,5].map(i => <div key={i} className="h-10 rounded-xl animate-pulse" style={{ background: "#F0FDFB" }} />)}</div>
+              <div className="space-y-2">{[1,2,3,4,5].map(i => <div key={i} className="h-10 rounded-xl animate-pulse" style={{ background: "var(--primary-pale)" }} />)}</div>
             ) : (
               <>
                 {/* Week view */}
@@ -298,8 +345,8 @@ export default function AttendancePage({ token, role }: AttendancePageProps) {
                       <div key={idx}
                         className="flex items-center gap-3 py-3 px-2 rounded-xl transition-colors"
                         style={{
-                          background: day.is_today ? "#F0FDFB" : "transparent",
-                          borderBottom: idx < week.length - 1 ? `1px solid #F0FDFB` : "none",
+                          background: day.is_today ? "var(--primary-pale)" : "transparent",
+                          borderBottom: idx < week.length - 1 ? `1px solid var(--primary-pale)` : "none",
                         }}
                       >
                         {/* Day indicator */}
@@ -360,17 +407,45 @@ export default function AttendancePage({ token, role }: AttendancePageProps) {
                 {/* Regularizations */}
                 {tab === "regularization" && (
                   <div>
-                    {regularizations.length === 0 ? (
+                    {/* Filter bar */}
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <input type="date" value={regFromDate} onChange={e => setRegFromDate(e.target.value)}
+                        className="text-xs px-3 py-2 rounded-xl border outline-none"
+                        style={{ borderColor: "var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }} title="From date" />
+                      <input type="date" value={regToDate} onChange={e => setRegToDate(e.target.value)}
+                        className="text-xs px-3 py-2 rounded-xl border outline-none"
+                        style={{ borderColor: "var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }} title="To date" />
+                      {isManager && (
+                        <input type="text" value={regName} onChange={e => setRegName(e.target.value)}
+                          placeholder="Search name…" className="text-xs px-3 py-2 rounded-xl border outline-none"
+                          style={{ borderColor: "var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }} />
+                      )}
+                      {(regFromDate || regToDate || regName) && (
+                        <button onClick={() => { setRegFromDate(""); setRegToDate(""); setRegName(""); }}
+                          className="text-xs px-3 py-2 rounded-xl font-semibold"
+                          style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>Clear</button>
+                      )}
+                      <div className="flex-1" />
+                      <button onClick={exportRegCSV} disabled={filteredRegs.length === 0}
+                        className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl font-semibold disabled:opacity-40"
+                        style={{ background: darkTeal, color: "white" }}>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export CSV {filteredRegs.length !== regularizations.length && `(${filteredRegs.length})`}
+                      </button>
+                    </div>
+                    {filteredRegs.length === 0 ? (
                       <div className="py-10 text-center">
                         <div className="text-sm mb-1" style={{ color: textMuted }}>No regularization requests</div>
                         <button onClick={() => setModal("reg")} className="text-xs font-semibold" style={{ color: teal }}>Submit one now →</button>
                       </div>
                     ) : (
                       <div className="space-y-0">
-                        {regularizations.map((r, idx) => (
+                        {filteredRegs.map((r, idx) => (
                           <div key={r.id}
-                            className="flex items-center gap-3 py-3 px-2 rounded-xl transition-colors group hover:bg-[#F0FDFB]"
-                            style={{ borderBottom: idx < regularizations.length - 1 ? `1px solid #F0FDFB` : "none" }}
+                            className="flex items-center gap-3 py-3 px-2 rounded-xl transition-colors group hover:bg-[var(--primary-pale)]"
+                            style={{ borderBottom: idx < filteredRegs.length - 1 ? `1px solid var(--primary-pale)` : "none" }}
                           >
                             <div className="flex-1 min-w-0">
                               {isManager && r.employee_name && (
@@ -403,17 +478,45 @@ export default function AttendancePage({ token, role }: AttendancePageProps) {
                 {/* WFH Requests */}
                 {tab === "wfh" && (
                   <div>
-                    {wfhRequests.length === 0 ? (
+                    {/* Filter bar */}
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <input type="date" value={wfhFromDate} onChange={e => setWfhFromDate(e.target.value)}
+                        className="text-xs px-3 py-2 rounded-xl border outline-none"
+                        style={{ borderColor: "var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }} title="From date" />
+                      <input type="date" value={wfhToDate} onChange={e => setWfhToDate(e.target.value)}
+                        className="text-xs px-3 py-2 rounded-xl border outline-none"
+                        style={{ borderColor: "var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }} title="To date" />
+                      {isManager && (
+                        <input type="text" value={wfhName} onChange={e => setWfhName(e.target.value)}
+                          placeholder="Search name…" className="text-xs px-3 py-2 rounded-xl border outline-none"
+                          style={{ borderColor: "var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }} />
+                      )}
+                      {(wfhFromDate || wfhToDate || wfhName) && (
+                        <button onClick={() => { setWfhFromDate(""); setWfhToDate(""); setWfhName(""); }}
+                          className="text-xs px-3 py-2 rounded-xl font-semibold"
+                          style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>Clear</button>
+                      )}
+                      <div className="flex-1" />
+                      <button onClick={exportWFHCSV} disabled={filteredWFH.length === 0}
+                        className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl font-semibold disabled:opacity-40"
+                        style={{ background: darkTeal, color: "white" }}>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export CSV {filteredWFH.length !== wfhRequests.length && `(${filteredWFH.length})`}
+                      </button>
+                    </div>
+                    {filteredWFH.length === 0 ? (
                       <div className="py-10 text-center">
                         <div className="text-sm mb-1" style={{ color: textMuted }}>No WFH requests</div>
                         <button onClick={() => setModal("wfh")} className="text-xs font-semibold" style={{ color: teal }}>Apply for WFH →</button>
                       </div>
                     ) : (
                       <div className="space-y-0">
-                        {wfhRequests.map((w, idx) => (
+                        {filteredWFH.map((w, idx) => (
                           <div key={w.id}
-                            className="flex items-center gap-3 py-3 px-2 rounded-xl transition-colors group hover:bg-[#F0FDFB]"
-                            style={{ borderBottom: idx < wfhRequests.length - 1 ? `1px solid #F0FDFB` : "none" }}
+                            className="flex items-center gap-3 py-3 px-2 rounded-xl transition-colors group hover:bg-[var(--primary-pale)]"
+                            style={{ borderBottom: idx < filteredWFH.length - 1 ? `1px solid var(--primary-pale)` : "none" }}
                           >
                             <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#DBEAFE" }}>
                               <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#1E40AF" strokeWidth="1.8"/></svg>
@@ -454,8 +557,8 @@ export default function AttendancePage({ token, role }: AttendancePageProps) {
                       <div className="space-y-0">
                         {penalties.map((p, idx) => (
                           <div key={p.id}
-                            className="flex items-center gap-3 py-3 px-2 rounded-xl hover:bg-[#F0FDFB] transition-colors"
-                            style={{ borderBottom: idx < penalties.length - 1 ? `1px solid #F0FDFB` : "none" }}
+                            className="flex items-center gap-3 py-3 px-2 rounded-xl hover:bg-[var(--primary-pale)] transition-colors"
+                            style={{ borderBottom: idx < penalties.length - 1 ? `1px solid var(--primary-pale)` : "none" }}
                           >
                             <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: p.status === "ACTIVE" ? "#FEE2E2" : "#D1FAE5" }}>
                               <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke={p.status === "ACTIVE" ? "#DC2626" : "#065F46"} strokeWidth="1.8" strokeLinecap="round"/></svg>

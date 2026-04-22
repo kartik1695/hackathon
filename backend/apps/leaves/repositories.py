@@ -24,6 +24,14 @@ class LeaveRequestReadRepository(BaseReadRepository[LeaveRequest]):
             ).select_related("employee__user")
         )
 
+    def get_team_leaves(self, manager_employee_id: int, status: str | None = None) -> "list[LeaveRequest]":
+        qs = LeaveRequest.objects.filter(
+            employee__manager_id=manager_employee_id,
+        ).select_related("employee__user", "employee__department", "applied_by", "approver").order_by("-created_at")
+        if status:
+            qs = qs.filter(status=status.upper())
+        return list(qs[:200])
+
     def get_pending_for_manager(self, manager_employee_id: int) -> "list[LeaveRequest]":
         return list(
             LeaveRequest.objects.filter(

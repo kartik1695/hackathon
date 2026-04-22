@@ -55,6 +55,22 @@ def route(state: AgentState) -> str:
                     return "leave_application"
                 break  # Only check the most recent assistant message
 
+    # ── Context-aware: short follow-up after roadmap/skill response → skill_roadmap ──
+    _roadmap_context_signals = (
+        "roadmap", "skill", "upskill", "pending approval", "in progress",
+        "learning journey", "milestone", "step 1", "step 2", "approve roadmap",
+    )
+    _short_followup = len(q.split()) <= 5
+    if _short_followup:
+        history = state.get("chat_history") or []
+        for msg in reversed(history[-4:]):
+            if msg.get("role") == "assistant":
+                assistant_text = (msg.get("content") or "").lower()
+                if any(sig in assistant_text for sig in _roadmap_context_signals):
+                    logger.info("Router: short follow-up after roadmap context; routing to skill_roadmap")
+                    return "skill_roadmap"
+                break
+
     try:
         from agents.intent_registry import INTENTS
         from core.llm.factory import LLMProviderFactory

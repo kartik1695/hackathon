@@ -4,15 +4,15 @@ import { NavPage } from "../layout/Sidebar";
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
 const C = {
-  pageBg:     "#EBF9F6",
-  cardBg:     "#FFFFFF",
-  darkTeal:   "#0D3D36",
-  teal:       "#0D9488",
-  tealLight:  "#5EEAD4",
-  tealPale:   "#CCFBF1",
-  tealBorder: "#99F6E4",
-  textDark:   "#0D3D36",
-  textMuted:  "#6B9E9A",
+  pageBg:     "var(--page-bg)",
+  cardBg:     "var(--card-bg)",
+  darkTeal:   "var(--primary-dark)",
+  teal:       "var(--primary)",
+  tealLight:  "var(--primary)",
+  tealPale:   "var(--primary-pale)",
+  tealBorder: "var(--card-border)",
+  textDark:   "var(--text-dark)",
+  textMuted:  "var(--text-muted)",
 };
 
 interface DashboardProps { token: string; role: string; userName: string; onNav: (p: NavPage) => void; }

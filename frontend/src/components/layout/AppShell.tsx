@@ -9,6 +9,7 @@ import EmployeePage from "../employees/EmployeePage";
 import { getAccess, clearTokens, getValidToken } from "../../auth";
 import { fetchMe, fetchUnreadNotifications, refreshToken, WS_BASE, UserProfile, NotificationItem } from "../../api";
 import ChatPage from "../../ChatPage";
+import UpskillPage from "../upskilling/UpskillPage";
 
 type ThemeId = "aurora_teal" | "arctic_blue" | "solar_gold" | "midnight" | "blossom" | "forest";
 
@@ -237,6 +238,7 @@ export default function AppShell() {
             {page === "leaves" && <LeavePage token={token} role={profile?.role ?? ""} />}
             {page === "attendance" && <AttendancePage token={token} role={profile?.role ?? ""} />}
             {page === "employees" && <EmployeePage token={token} role={profile?.role ?? ""} />}
+            {page === "upskilling" && <UpskillPage token={token} role={profile?.role ?? ""} />}
           </>
         )}
       </main>

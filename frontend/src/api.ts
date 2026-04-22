@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
-=======
-const BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api";
->>>>>>> 0e8e6cee7f342a484ab1a3cb521617f3c3de0072
 export const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? "ws://localhost:8001";
 
 export interface TokenPair {
@@ -107,11 +103,7 @@ export async function fetchSessionMessages(token: string, sessionId: string): Pr
   return data.messages as BackendMessage[];
 }
 
-<<<<<<< HEAD
 // ── Notifications ─────────────────────────────────────────────────────────────
-=======
-// \u2500\u2500 Notifications \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
->>>>>>> 0e8e6cee7f342a484ab1a3cb521617f3c3de0072
 
 export interface NotificationItem {
   id: number;
@@ -157,11 +149,7 @@ export async function renotifyLeave(token: string, leaveId: number): Promise<Ren
   return data as RenotifyResult;
 }
 
-<<<<<<< HEAD
 // ── Chat ──────────────────────────────────────────────────────────────────────
-=======
-// \u2500\u2500 Chat \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
->>>>>>> 0e8e6cee7f342a484ab1a3cb521617f3c3de0072
 
 export async function sendMessage(
   token: string,

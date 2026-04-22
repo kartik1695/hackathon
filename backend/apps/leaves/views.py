@@ -218,6 +218,19 @@ class LeaveTeamCalendarView(APIView):
         return Response({"count": len(leaves), "results": LeaveRequestSerializer(leaves, many=True).data})
 
 
+class LeaveTeamAllView(APIView):
+    """GET manager sees all team leaves (optionally filtered by status)."""
+    permission_classes = [IsManager]
+
+    def get(self, request):
+        emp = getattr(request.user, "employee", None)
+        if not emp:
+            return Response(error_response("No employee profile", "NO_EMPLOYEE"), status=403)
+        status_filter = request.query_params.get("status")
+        leaves = LeaveRequestReadRepository().get_team_leaves(emp.id, status_filter)
+        return Response({"count": len(leaves), "results": LeaveRequestSerializer(leaves, many=True).data})
+
+
 class LeaveBalanceView(APIView):
     """GET my leave balance."""
     permission_classes = [IsEmployee]
