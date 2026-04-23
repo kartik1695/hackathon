@@ -16,15 +16,16 @@ const GRADIENTS = {
 
 const SIZES = { sm: "w-32 h-32", md: "w-48 h-48", lg: "w-72 h-72" };
 
-export default function GradientBlob({ variant = "pink", className = "", size = "md" }: BlobProps) {
+export default function GradientBlob({
+  variant = "pink",
+  className = "",
+  size = "md",
+}: BlobProps) {
   return (
     <div
-      className={`
-        rounded-full bg-gradient-to-br ${GRADIENTS[variant]} ${SIZES[size]}
-        opacity-80 blur-sm
-        ${className}
-      `}
-      style={{ filter: "blur(2px)" }}
+      aria-hidden
+      className={`rounded-full bg-gradient-to-br ${GRADIENTS[variant]} ${SIZES[size]} opacity-50 pointer-events-none ${className}`}
+      style={{ filter: "blur(40px)" }}
     />
   );
 }

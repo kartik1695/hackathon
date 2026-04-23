@@ -1,5 +1,6 @@
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
-export const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? "ws://localhost:8001";
+const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+export const WS_BASE: string =
+  import.meta.env.VITE_WS_BASE ?? "ws://localhost:8001";
 
 export interface TokenPair {
   access: string;
@@ -18,7 +19,10 @@ export interface ChatResponse {
 
 // \u2500\u2500 Auth \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
-export async function login(email: string, password: string): Promise<TokenPair> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<TokenPair> {
   const res = await fetch(`${BASE}/auth/token/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -93,7 +97,10 @@ export interface BackendMessage {
   created_at: string;
 }
 
-export async function fetchSessionMessages(token: string, sessionId: string): Promise<BackendMessage[]> {
+export async function fetchSessionMessages(
+  token: string,
+  sessionId: string,
+): Promise<BackendMessage[]> {
   const res = await fetch(`${BASE}/ai/sessions/${sessionId}/messages/`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -114,7 +121,9 @@ export interface NotificationItem {
   created_at: string;
 }
 
-export async function fetchUnreadNotifications(token: string): Promise<NotificationItem[]> {
+export async function fetchUnreadNotifications(
+  token: string,
+): Promise<NotificationItem[]> {
   const res = await fetch(`${BASE}/notifications/?unread=true&limit=20`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -124,7 +133,13 @@ export async function fetchUnreadNotifications(token: string): Promise<Notificat
 }
 
 export interface RenotifyResult {
-  status: "re_pushed" | "new_reminder" | "limit_reached" | "cooldown" | "not_found" | "error";
+  status:
+    | "re_pushed"
+    | "new_reminder"
+    | "limit_reached"
+    | "cooldown"
+    | "not_found"
+    | "error";
   manager_read?: boolean;
   renotify_count?: number;
   reminders_left?: number;
@@ -132,7 +147,10 @@ export interface RenotifyResult {
   error?: string;
 }
 
-export async function renotifyLeave(token: string, leaveId: number): Promise<RenotifyResult> {
+export async function renotifyLeave(
+  token: string,
+  leaveId: number,
+): Promise<RenotifyResult> {
   const res = await fetch(`${BASE}/notifications/renotify/`, {
     method: "POST",
     headers: {
@@ -160,7 +178,7 @@ export async function sendMessage(
     collecting_index?: number;
     leave_items?: unknown[];
     policy_violations?: unknown[];
-  } = {}
+  } = {},
 ): Promise<ChatResponse> {
   const body: Record<string, unknown> = { message, ...collectionState };
   if (sessionId) body.session_id = sessionId;
