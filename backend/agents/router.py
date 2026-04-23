@@ -71,6 +71,52 @@ def route(state: AgentState) -> str:
         logger.info("Router: mentor Q&A answer detected; routing to roadmap_create")
         return "roadmap_create"
 
+    _post_draft_signals = (
+        "submit for manager approval",
+        "draft is ready",
+        "i've put together",
+        "here's your personalized",
+        "here is your personalized",
+        "walk you through it",
+        "your roadmap is structured",
+    )
+    _draft_modification_kws = (
+        "don't want",
+        "dont want",
+        "remove",
+        "without",
+        "skip",
+        "exclude",
+        "not interested",
+        "avoid",
+        "add ",
+        "include ",
+        "more focus",
+        "less focus",
+        "change the",
+        "instead",
+        "focus only",
+        "focus on",
+        "drop ",
+        "shorten",
+        "modify",
+        "adjust",
+        "tweak",
+        "revise",
+    )
+    history = state.get("chat_history") or []
+    draft_shown = False
+    for msg in reversed(history[-8:]):
+        if msg.get("role") == "assistant":
+            txt = (msg.get("content") or "").lower()
+            draft_shown = any(s in txt for s in _post_draft_signals)
+            break
+    if draft_shown and any(k in q for k in _draft_modification_kws):
+        logger.info(
+            "Router: roadmap draft modification detected; routing to roadmap_create"
+        )
+        return "roadmap_create"
+
     # ── Explicit roadmap CREATION intent — must run BEFORE short-followup context check ──
     # Broad "learn X" patterns including typos (wan/wanna/would like etc.)
     _roadmap_create_kws = (

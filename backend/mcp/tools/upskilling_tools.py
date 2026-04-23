@@ -341,7 +341,14 @@ def confirm_roadmap_draft(employee_id: int, requester_id: int, requester_role: s
         employee_id=employee_id, skill_name__iexact=draft.skill_name
     ).exclude(status__in=["REJECTED", "ABANDONED"]).first()
     if existing:
-        return {"error": f"A roadmap for '{draft.skill_name}' already exists (status: {existing.status}). Cannot submit duplicate.", "already_exists": True}
+        res = _get_updated_roadmap_details(existing)
+        res["submitted"] = False
+        res["already_exists"] = True
+        res["message"] = (
+            f"Looks like you already have an active '{existing.skill_name}' roadmap "
+            f"(status: {existing.status.replace('_', ' ')})."
+        )
+        return res
 
     roadmap = SkillRoadmap.objects.create(
         employee_id=employee_id,

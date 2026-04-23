@@ -377,7 +377,7 @@ function CtaButtons({ buttons, onSelect }: { buttons: string[]; onSelect: (b: st
   );
 }
 
-function AssistantContent({ content, onCta }: { content: string; onCta?: (text: string) => void }) {
+function AssistantContent({ content, onCta, hideCtas }: { content: string; onCta?: (text: string) => void; hideCtas?: boolean }) {
   const parts = parseMessageParts(content);
   return (
     <div className="prose prose-sm max-w-none overflow-x-auto" style={{ color: "var(--text-dark)" }}>
@@ -385,7 +385,7 @@ function AssistantContent({ content, onCta }: { content: string; onCta?: (text: 
         part.kind === "chart" ? (
           <ChartBlock key={i} spec={part.spec} />
         ) : part.kind === "cta" ? (
-          <CtaButtons key={i} buttons={part.buttons} onSelect={b => onCta?.(b)} />
+          hideCtas ? null : <CtaButtons key={i} buttons={part.buttons} onSelect={b => onCta?.(b)} />
         ) : (
           <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={MD_COMPONENTS as never}>
             {part.text}
@@ -542,10 +542,10 @@ function DraftRoadmapChatCard({ draft, onAction }: { draft: any; onAction: (text
   const skillName = draft.skill_name;
 
   function handleSubmit() {
-    onAction(`Submit my ${skillName} roadmap to manager`);
+    onAction("✅ Submit for Manager Approval");
   }
   function handleStartOver() {
-    onAction(`Start over my ${skillName} roadmap`);
+    onAction("❌ Start Over");
   }
   function handleApplyMod() {
     if (!modText.trim()) return;
@@ -1704,14 +1704,21 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                       <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     ) : (
                       <>
-                        <AssistantContent content={msg.content} onCta={(btn) => submit(btn)} />
+                        <AssistantContent
+                          content={msg.content}
+                          onCta={(btn) => submit(btn)}
+                          hideCtas={Boolean(msg.tool_results?.save_roadmap_draft)}
+                        />
                         {msg.tool_results && (() => {
                           const inlineCTAs = buildInlineCTAs(msg.tool_results);
                           const roadmapKeys = [
                             "generate_skill_roadmap", "get_roadmap_details",
+                            "confirm_roadmap_draft",
                             "submit_roadmap_step", "approve_roadmap_step",
                             "reject_roadmap_step", "approve_roadmap", "reject_roadmap",
                           ];
+                          const draftData = msg.tool_results!["save_roadmap_draft"];
+                          const hasDraft = Boolean(draftData?.draft_id && Array.isArray(draftData?.steps) && draftData.steps.length > 0);
                           const roadmapData = roadmapKeys
                             .map(k => msg.tool_results![k])
                             .find(v => v?.id && v?.steps);
@@ -1734,6 +1741,12 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                                     </button>
                                   ))}
                                 </div>
+                              )}
+                              {hasDraft && (
+                                <DraftRoadmapChatCard
+                                  draft={draftData}
+                                  onAction={submit}
+                                />
                               )}
                               {resolvedRoadmap && (
                                 <RoadmapChatCard

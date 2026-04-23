@@ -230,6 +230,11 @@ class RegularizationListView(APIView):
         if status_filter:
             extra["status"] = status_filter.upper()
 
+        scope = request.query_params.get("scope")
+        if scope == "me":
+            items = repo.list(employee_id=employee.id, **extra)
+            return Response(RegularizationRequestSerializer(items, many=True).data)
+
         if employee.role in ("hr", "admin"):
             items = repo.list(**extra)
         elif employee.role in ("manager",):
@@ -334,6 +339,11 @@ class WFHListView(APIView):
         status_filter = request.query_params.get("status")
         if status_filter:
             extra["status"] = status_filter.upper()
+
+        scope = request.query_params.get("scope")
+        if scope == "me":
+            items = repo.list(employee_id=employee.id, **extra)
+            return Response(WFHRequestSerializer(items, many=True).data)
 
         if employee.role in ("hr", "admin"):
             items = repo.list(**extra)

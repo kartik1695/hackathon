@@ -1000,6 +1000,16 @@ def run(state: AgentState) -> AgentState:
             "yes, save", "save as ", "create my roadmap", "build my roadmap",
         )
         if any(s in q for s in _CONFIRM_SIGNALS):
+            skill = _extract_skill_from_history(state)
+            if skill:
+                apply_input = {**apply_input, "skill_name": skill}
+                logger.info(
+                    "roadmap_create: confirm detected; using skill_name=%s", skill
+                )
+            else:
+                logger.info(
+                    "roadmap_create: confirm detected; no skill_name resolved from history"
+                )
             tool_names = ["confirm_roadmap_draft"]
         elif any(s in q for s in _SAVE_SIGNALS):
             skill = _extract_skill_from_history(state)
@@ -1015,10 +1025,30 @@ def run(state: AgentState) -> AgentState:
                 "walk you through it", "your roadmap is structured",
             )
             _modification_kws = (
-                "don't want", "dont want", "remove", "without", "skip", "exclude",
-                "no strategic", "no foundation", "not interested", "avoid",
-                "add ", "include ", "more focus", "less focus", "change the",
-                "instead", "focus only", "focus on", "drop ", "shorten",
+                "don't want",
+                "dont want",
+                "remove",
+                "without",
+                "skip",
+                "exclude",
+                "no strategic",
+                "no foundation",
+                "not interested",
+                "avoid",
+                "add ",
+                "include ",
+                "more focus",
+                "less focus",
+                "change the",
+                "instead",
+                "focus only",
+                "focus on",
+                "drop ",
+                "shorten",
+                "modify",
+                "adjust",
+                "tweak",
+                "revise",
             )
             _confirmation_of_change = {"yes", "yeah", "yep", "proceed", "go ahead", "ok", "okay", "sure", "do it"}
             history = state.get("chat_history") or []
