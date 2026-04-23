@@ -43,7 +43,7 @@ class LeaveListCreateView(APIView):
         offset = max(0, offset)
 
         qs = (
-            LeaveRequestReadRepository().model.objects.filter(employee_id=request.user.employee.id)
+            LeaveRequest.objects.filter(employee_id=request.user.employee.id)
             .select_related("employee__user", "approver", "applied_by")
             .order_by("-created_at")
         )

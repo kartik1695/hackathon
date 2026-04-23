@@ -34,7 +34,11 @@
       "Bash(pip3.12 show *)",
       "Bash(npm run *)",
       "Bash(DJANGO_SETTINGS_MODULE=config.settings.local python3 manage.py backfill_attendance --weeks 5)",
-      "Bash(docker exec hackathon-web-1 *)"
+      "Bash(docker exec hackathon-web-1 *)",
+      "Bash(curl -s 'http://localhost:8002/api/leaves/?limit=20' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc2OTE5MTA4LCJpYXQiOjE3NzY5MTU1MDgsImp0aSI6IjMzNTY1MjYyYmQ0MjQ3MDU5YzZlYWIzMjY1MTkwODc0IiwidXNlcl9pZCI6NDg4fQ.jF0xNN9Tk31LfMkl580PKHyhAuTshn_w0_R3me5zsWo')",
+      "Bash(docker restart *)",
+      "Bash(curl -s 'http://localhost:8002/api/leaves/?limit=5' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc2OTE5MTA4LCJpYXQiOjE3NzY5MTU1MDgsImp0aSI6IjMzNTY1MjYyYmQ0MjQ3MDU5YzZlYWIzMjY1MTkwODc0IiwidXNlcl9pZCI6NDg4fQ.jF0xNN9Tk31LfMkl580PKHyhAuTshn_w0_R3me5zsWo')",
+      "Bash(curl -s http://localhost:8002/api/attendance/org-insights/ -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc2OTE5MTA4LCJpYXQiOjE3NzY5MTU1MDgsImp0aSI6IjMzNTY1MjYyYmQ0MjQ3MDU5YzZlYWIzMjY1MTkwODc0IiwidXNlcl9pZCI6NDg4fQ.jF0xNN9Tk31LfMkl580PKHyhAuTshn_w0_R3me5zsWo')"
     ]
   },
   "enabledPlugins": {

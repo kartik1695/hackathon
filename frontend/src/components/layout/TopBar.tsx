@@ -14,22 +14,27 @@ type ThemeChoice = {
 };
 interface TopBarProps {
   page: NavPage; notifications: NotificationItem[]; unreadCount: number;
-  onMarkRead: (id: number) => void; onNav: (p: NavPage) => void;
+  onMarkRead: (id: number, navTarget?: NavPage) => void; onNav: (p: NavPage) => void;
   userName?: string; onLogout?: () => void;
   themeId: string;
   themes: ThemeChoice[];
   onThemeSelect: (id: string) => void;
 }
 
+function navTargetFromNotif(n: NotificationItem): NavPage | undefined {
+  const m = n.metadata ?? {};
+  if (m.leave_id != null) return "leaves";
+  if (m.regularization_id != null || m.wfh_id != null || m.penalty_id != null) return "attendance";
+  if (m.roadmap_id != null || m.step_id != null) return "upskilling";
+  return undefined;
+}
+
 // Nav tabs — label drives display; id drives navigation
 const NAV_TABS: { id: NavPage; label: string; activeFor?: NavPage[] }[] = [
   { id: "dashboard",  label: "Dashboard",   activeFor: ["dashboard"] },
   { id: "employees",  label: "People",      activeFor: ["employees"] },
-  { id: "employees",  label: "Hiring" },
   { id: "attendance", label: "Attendance",  activeFor: ["attendance"] },
   { id: "leaves",     label: "Leave",       activeFor: ["leaves"] },
-  { id: "employees",  label: "Salary" },
-  { id: "employees",  label: "Reviews" },
   { id: "upskilling", label: "Upskilling",  activeFor: ["upskilling"] },
   { id: "chat",       label: "AI Insights", activeFor: ["chat"] },
   { id: "employees",  label: "Reports" },
@@ -205,7 +210,7 @@ export default function TopBar({ page, notifications, unreadCount, onMarkRead, o
                 ) : (
                   notifications.map(n => (
                     <div key={n.id}
-                      onClick={() => { onMarkRead(n.id); setShowNotifs(false); }}
+                      onClick={() => { onMarkRead(n.id, navTargetFromNotif(n)); setShowNotifs(false); }}
                       className="px-4 py-3 cursor-pointer transition-colors"
                       style={{ background: !n.read ? "#F0FDFB" : undefined, borderBottom: "1px solid #F0FDFB" }}
                       onMouseEnter={e => (e.currentTarget.style.background = "#EAF7F3")}

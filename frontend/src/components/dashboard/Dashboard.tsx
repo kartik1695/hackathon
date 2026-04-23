@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { NavPage } from "../layout/Sidebar";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
@@ -19,6 +19,25 @@ interface DashboardProps { token: string; role: string; userName: string; onNav:
 interface LeaveBalance { casual_remaining: number; privilege_remaining: number; sick_remaining: number; comp_off_remaining: number; }
 interface PendingLeave { id: number; employee_name: string; leave_type: string; days_count: number; from_date: string; to_date?: string; }
 interface MyLeave { id: number; leave_type: string; from_date: string; to_date: string; days_count: number; status: string; }
+interface MyRequest { id: number; type: "leave" | "regularization" | "wfh"; label: string; sub: string; status: string; }
+
+const QUOTES = [
+  { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+  { text: "Great things are done by a series of small things brought together.", author: "Vincent Van Gogh" },
+  { text: "It always seems impossible until it's done.", author: "Nelson Mandela" },
+  { text: "Your work is going to fill a large part of your life. Do great work.", author: "Steve Jobs" },
+  { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+  { text: "Success is not final, failure is not fatal — it is the courage to continue that counts.", author: "Winston Churchill" },
+  { text: "Don't watch the clock; do what it does. Keep going.", author: "Sam Levenson" },
+  { text: "Productivity is never an accident. It is always the result of commitment to excellence.", author: "Paul J. Meyer" },
+  { text: "Focus on being productive instead of busy.", author: "Tim Ferriss" },
+  { text: "Work hard, be kind, and amazing things will happen.", author: "Conan O'Brien" },
+  { text: "The way to get started is to quit talking and begin doing.", author: "Walt Disney" },
+  { text: "Small progress is still progress.", author: "" },
+  { text: "Every morning you have two choices: continue to sleep with your dreams, or wake up and chase them.", author: "" },
+  { text: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar" },
+  { text: "Hard work beats talent when talent doesn't work hard.", author: "Tim Notke" },
+];
 interface TeamMember { id: number; name: string; title: string; department: string; status: "PRESENT"|"WFH"|"ABSENT"|"ON_LEAVE"; }
 interface TeamStatus { direct_reports: TeamMember[]; peers: TeamMember[]; }
 interface TodayLog { id: number; check_in: string|null; check_out: string|null; status: string; }
@@ -135,37 +154,71 @@ function FemaleAvatarSVG() {
   );
 }
 
-// ── Progress bar chart — real week data, thin line style ──────────────────────
+// ── Progress bar chart — clean professional vertical bars ─────────────────────
 function ProgressBarChart({ weekData }: { weekData: WeekDay[] }) {
+  const MAX_BAR_H = 52;
+  const STD_HOURS = 9;
+  const maxHours = Math.max(STD_HOURS, ...weekData.map(d => d.hours ?? 0));
+
   return (
-    <div className="relative mt-8 mb-1">
-      <div className="flex items-end gap-3">
+    <div className="mt-4 mb-1">
+      {/* Chart area */}
+      <div className="flex items-end gap-1.5" style={{ height: `${MAX_BAR_H + 20}px` }}>
         {weekData.map((day, i) => {
-          const hasData = day.hours != null && day.hours > 0;
-          const barColor = day.is_future ? "#E5E7EB"
-            : day.is_leave ? "#FCA5A5"
-            : day.is_today ? C.darkTeal
-            : hasData ? C.tealLight
-            : "#E5E7EB";
+          const hours = day.hours ?? 0;
+          const pct = day.is_leave ? 0.25
+            : hours > 0 ? hours / maxHours
+            : 0;
+          const barH = Math.max(3, Math.round(pct * MAX_BAR_H));
+
+          const barColor = day.is_future || (!day.is_leave && hours === 0)
+            ? "#EEF0F2"
+            : day.is_leave
+            ? "#FED7AA"
+            : day.is_today
+            ? C.darkTeal
+            : C.tealLight;
 
           return (
-            <div key={i} className="flex flex-col items-center flex-1 relative" style={{ paddingTop: "28px" }}>
-              {/* tooltip for today or leave days */}
-              {day.is_today && hasData && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[9px] font-bold text-white whitespace-nowrap"
-                  style={{ background: C.darkTeal }}>
-                  {day.hours}h
-                </div>
-              )}
-              {day.is_leave && !day.is_today && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap"
-                  style={{ background: "#FEE2E2", color: "#F87171" }}>
-                  Leave
-                </div>
-              )}
-              {/* uniform thin bar */}
-              <div className="w-full rounded-full mb-2" style={{ height: "4px", background: barColor }} />
-              <div className="text-[10px] font-medium" style={{ color: day.is_today ? C.textDark : C.textMuted }}>
+            <div
+              key={i}
+              className="flex flex-col items-center flex-1"
+              style={{ height: `${MAX_BAR_H + 20}px`, justifyContent: "flex-end" }}
+            >
+              {/* hours label — only for days with data */}
+              <div className="text-[9px] font-semibold mb-1 tabular-nums" style={{ color: hours > 0 && !day.is_future ? C.darkTeal : "transparent" }}>
+                {hours > 0 ? `${hours.toFixed(1)}` : "·"}
+              </div>
+              {/* bar */}
+              <div
+                style={{
+                  width: "100%",
+                  height: `${barH}px`,
+                  background: barColor,
+                  borderRadius: "3px 3px 2px 2px",
+                  transition: "height 0.5s ease",
+                  minHeight: "3px",
+                  position: "relative",
+                }}
+              >
+                {day.is_leave && (
+                  <div style={{
+                    position: "absolute",
+                    top: "-14px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    fontSize: "8px",
+                    fontWeight: 600,
+                    color: "#C2410C",
+                    whiteSpace: "nowrap",
+                  }}>L</div>
+                )}
+              </div>
+              {/* day label */}
+              <div
+                className="text-[10px] mt-1.5 font-medium"
+                style={{ color: day.is_today ? C.darkTeal : "#9CA3AF", fontWeight: day.is_today ? 700 : 500 }}
+              >
                 {day.weekday_short}
               </div>
             </div>
@@ -454,76 +507,146 @@ function OrgInsightsCard({ orgStats, loading }: { orgStats: OrgStats | null; loa
 }
 
 // ── My Leaves ──────────────────────────────────────────────────────────────────
+const TYPE_SHORT: Record<string, string> = { CL: "Casual", SL: "Sick", PL: "Privilege", LOP: "LOP", CO: "Comp Off" };
 function MyLeavesCard({ myLeaves, loading, onNav }: { myLeaves: MyLeave[]; loading: boolean; onNav: (p: NavPage) => void }) {
-  const SC: Record<string, string> = { PENDING: "#F59E0B", APPROVED: "#0D9488", REJECTED: "#F87171" };
+  const SC: Record<string, string> = { PENDING: "#F59E0B", APPROVED: "#10B981", REJECTED: "#F87171", CANCELLED: "#9CA3AF" };
+  const today = new Date().toISOString().split("T")[0];
   return (
     <div className="rounded-2xl p-5" style={{ background: C.cardBg, boxShadow: "0 1px 4px rgba(13,148,136,0.08)" }}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold" style={{ color: C.textDark }}>My Leaves</span>
         <button onClick={() => onNav("leaves")} className="text-xs font-medium hover:underline" style={{ color: C.teal }}>+ Apply</button>
       </div>
-      {loading ? [1,2].map(i => <div key={i} className="h-10 mb-2 rounded-xl animate-pulse" style={{ background: C.tealPale }} />)
-        : myLeaves.length === 0 ? <div className="text-sm py-4 text-center" style={{ color: C.textMuted }}>No recent leaves</div>
+      {loading
+        ? [1,2].map(i => <div key={i} className="h-10 mb-2 rounded-xl animate-pulse" style={{ background: C.tealPale }} />)
+        : myLeaves.length === 0
+        ? <div className="text-sm py-4 text-center" style={{ color: C.textMuted }}>No leaves found</div>
         : (
           <div className="space-y-2">
-            {myLeaves.slice(0, 4).map(l => (
-              <div key={l.id} className="flex items-center gap-2 py-1.5">
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold" style={{ color: C.textDark }}>{l.leave_type}</div>
-                  <div className="text-[10px]" style={{ color: C.textMuted }}>{l.from_date} → {l.to_date} · {l.days_count}d</div>
+            {myLeaves.slice(0, 5).map(l => {
+              const isUpcoming = l.from_date >= today;
+              return (
+                <div key={l.id} className="flex items-center gap-2 py-1.5" style={{ borderBottom: "1px solid var(--card-border)" }}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold" style={{ color: C.textDark }}>{TYPE_SHORT[l.leave_type] ?? l.leave_type}</span>
+                      {isUpcoming && (
+                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#DBEAFE", color: "#1E40AF" }}>upcoming</span>
+                      )}
+                    </div>
+                    <div className="text-[10px]" style={{ color: C.textMuted }}>{l.from_date} → {l.to_date} · {l.days_count}d</div>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] font-semibold flex-shrink-0" style={{ color: SC[l.status] || "#9CA3AF" }}>
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: SC[l.status] || "#9CA3AF" }} />
+                    {l.status.charAt(0) + l.status.slice(1).toLowerCase()}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: SC[l.status] || "#9CA3AF" }}>
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: SC[l.status] || "#9CA3AF" }} />
-                  {l.status.toLowerCase()}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )
       }
+      <button onClick={() => onNav("leaves")} className="w-full mt-3 py-1.5 rounded-xl text-[11px] font-semibold hover:opacity-80 transition-opacity" style={{ background: C.tealPale, color: C.darkTeal }}>
+        View all leaves →
+      </button>
     </div>
   );
 }
 
 // ── Pending Approvals ──────────────────────────────────────────────────────────
-function PendingApprovalsCard({ loading, pendingLeaves, onApprove, onReject }:
-  { loading: boolean; pendingLeaves: PendingLeave[]; onApprove:(id:number)=>void; onReject:(id:number)=>void }) {
+const STATUS_PILL: Record<string, { bg: string; color: string; label: string }> = {
+  PENDING:   { bg: "#FEF3C7", color: "#92400E", label: "Pending" },
+  APPROVED:  { bg: "#D1FAE5", color: "#065F46", label: "Approved" },
+  REJECTED:  { bg: "#FEE2E2", color: "#991B1B", label: "Rejected" },
+  CANCELLED: { bg: "#F3F4F6", color: "#6B7280", label: "Cancelled" },
+};
+
+const REQ_ICON: Record<string, string> = { leave: "🏖", regularization: "📋", wfh: "🏠" };
+
+function PendingApprovalsCard({ loading, pendingLeaves, myLeaves, myRequests, isManager, renotifyLoading, onApprove, onReject, onRenotify }:
+  { loading: boolean; pendingLeaves: PendingLeave[]; myLeaves: MyLeave[]; myRequests: MyRequest[]; isManager: boolean; renotifyLoading: number | null; onApprove:(id:number)=>void; onReject:(id:number)=>void; onRenotify:(id:number, type: string)=>void }) {
+
   return (
-    <div className="rounded-2xl p-5 h-full" style={{ background: C.cardBg, boxShadow: "0 1px 4px rgba(13,148,136,0.08)" }}>
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-semibold" style={{ color: C.textDark }}>Pending Approvals</span>
-        {pendingLeaves.length > 0 && (
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full" style={{ background: "#F97316" }} />
-            <span className="text-[11px] font-semibold" style={{ color: "#F97316" }}>{pendingLeaves.length} pending</span>
-          </div>
-        )}
-      </div>
-      <div className="space-y-3 overflow-y-auto" style={{ maxHeight: "460px", scrollbarWidth: "none" }}>
-        {loading ? [1,2,3].map(i => <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: C.tealPale }} />)
-          : pendingLeaves.length === 0 ? <div className="text-sm text-center py-8" style={{ color: C.textMuted }}>No pending approvals</div>
-          : pendingLeaves.map((leave, idx) => {
-            const init = (leave.employee_name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
-            return (
-              <div key={leave.id} className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                  style={{ background: AV_BG[idx % AV_BG.length] }}>{init}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold truncate" style={{ color: C.textDark }}>{leave.employee_name}</div>
-                  <div className="text-[10px]" style={{ color: C.textMuted }}>
-                    {leave.leave_type} · {leave.from_date}{leave.to_date && leave.to_date !== leave.from_date ? `–${leave.to_date}` : ""}
+    <div className="rounded-2xl p-5 flex flex-col gap-5" style={{ background: C.cardBg, boxShadow: "0 1px 4px rgba(13,148,136,0.08)" }}>
+
+      {/* Section 1 — Team actions waiting on manager (manager only) */}
+      {isManager && <div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold" style={{ color: C.textDark }}>Team Approvals</span>
+          {pendingLeaves.length > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
+              {pendingLeaves.length} pending
+            </span>
+          )}
+        </div>
+        <div className="space-y-2.5 overflow-y-auto" style={{ maxHeight: "220px", scrollbarWidth: "none" }}>
+          {loading
+            ? [1,2].map(i => <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: C.tealPale }} />)
+            : pendingLeaves.length === 0
+              ? <div className="text-xs text-center py-5" style={{ color: C.textMuted }}>No team approvals pending</div>
+              : pendingLeaves.map((leave, idx) => {
+                  const init = (leave.employee_name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+                  return (
+                    <div key={leave.id} className="flex items-center gap-2.5 p-2 rounded-xl" style={{ background: "var(--primary-pale)" }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                        style={{ background: AV_BG[idx % AV_BG.length] }}>{init}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold truncate" style={{ color: C.textDark }}>{leave.employee_name}</div>
+                        <div className="text-[10px]" style={{ color: C.textMuted }}>
+                          {TYPE_SHORT[leave.leave_type] ?? leave.leave_type} · {leave.from_date}{leave.to_date && leave.to_date !== leave.from_date ? `–${leave.to_date}` : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => onApprove(leave.id)} className="px-2 py-1 rounded-full text-[10px] font-semibold hover:opacity-80"
+                          style={{ background: C.teal, color: "white" }}>✓</button>
+                        <button onClick={() => onReject(leave.id)} className="px-2 py-1 rounded-full text-[10px] font-semibold hover:opacity-80"
+                          style={{ background: "#F87171", color: "white" }}>✗</button>
+                      </div>
+                    </div>
+                  );
+                })
+          }
+        </div>
+      </div>}
+
+      {/* Divider — only when manager */}
+      {isManager && <div style={{ borderTop: "1px solid var(--card-border)" }} />}
+
+      {/* Section 2 — My pending requests (all roles) */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold" style={{ color: C.textDark }}>My Requests</span>
+          {myRequests.length > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
+              {myRequests.length} pending
+            </span>
+          )}
+        </div>
+        <div className="space-y-2 overflow-y-auto" style={{ maxHeight: "240px", scrollbarWidth: "none" }}>
+          {loading
+            ? [1,2].map(i => <div key={i} className="h-10 rounded-xl animate-pulse" style={{ background: C.tealPale }} />)
+            : myRequests.length === 0
+              ? <div className="text-xs text-center py-6" style={{ color: C.textMuted }}>No pending requests</div>
+              : myRequests.map(r => (
+                  <div key={`${r.type}-${r.id}`} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--card-border)", background: "var(--primary-pale)" }}>
+                    <span className="text-base flex-shrink-0">{REQ_ICON[r.type]}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold truncate" style={{ color: C.textDark }}>{r.label}</div>
+                      <div className="text-[10px]" style={{ color: C.textMuted }}>{r.sub}</div>
+                    </div>
+                    <button
+                      onClick={() => onRenotify(r.id, r.type)}
+                      disabled={renotifyLoading === r.id}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 hover:opacity-80 disabled:opacity-50 transition-opacity"
+                      style={{ border: `1px solid ${C.teal}`, color: C.teal, background: "transparent" }}
+                      title="Remind manager"
+                    >
+                      {renotifyLoading === r.id ? "…" : "🔔 Remind"}
+                    </button>
                   </div>
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button onClick={() => onApprove(leave.id)} className="px-2.5 py-1 rounded-full text-[10px] font-semibold hover:opacity-80"
-                    style={{ border: `1px solid ${C.teal}`, color: C.teal, background: "transparent" }}>Approve</button>
-                  <button onClick={() => onReject(leave.id)} className="px-2.5 py-1 rounded-full text-[10px] font-semibold hover:opacity-80"
-                    style={{ border: "1px solid #F87171", color: "#F87171", background: "transparent" }}>Reject</button>
-                </div>
-              </div>
-            );
-          })
-        }
+                ))
+          }
+        </div>
       </div>
     </div>
   );
@@ -645,31 +768,70 @@ export default function Dashboard({ token, role, userName, onNav }: DashboardPro
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [pendingLeaves, setPendingLeaves] = useState<PendingLeave[]>([]);
   const [myLeaves, setMyLeaves] = useState<MyLeave[]>([]);
+  const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
   const [teamStatus, setTeamStatus] = useState<TeamStatus | null>(null);
   const [orgStats, setOrgStats] = useState<OrgStats | null>(null);
   const [weekData, setWeekData] = useState<WeekDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
+  const [renotifyLoading, setRenotifyLoading] = useState<number | null>(null);
 
   const isFemaleName = ["a", "e", "i"].includes((userName[0] || "").toLowerCase());
   const firstName = userName.split(" ")[0] || "User";
+  const quote = useMemo(() => QUOTES[Math.floor(Math.random() * QUOTES.length)], []);
   const isManager = ["manager", "hr", "cfo", "admin"].includes(role);
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [bal, pending, mine, team, week, org] = await Promise.all([
+      const [bal, pending, mine, team, week, org, regs, wfhs] = await Promise.all([
         apiFetch(token, "/leaves/balance/"),
-        isManager ? apiFetch(token, "/leaves/?status=PENDING&limit=20") : Promise.resolve(null),
-        apiFetch(token, "/leaves/?limit=10"),
+        isManager ? apiFetch(token, "/leaves/pending/") : Promise.resolve(null),
+        apiFetch(token, "/leaves/?limit=50"),
         apiFetch(token, "/employees/team-status/"),
         apiFetch(token, "/attendance/week/"),
         apiFetch(token, "/attendance/org-insights/"),
+        apiFetch(token, "/attendance/regularization/?status=PENDING&limit=20"),
+        apiFetch(token, "/attendance/wfh/?status=PENDING&limit=20"),
       ]);
       if (bal) setBalance(bal);
-      if (pending) setPendingLeaves((pending?.results ?? (Array.isArray(pending) ? pending : [])).slice(0, 8));
-      if (mine) setMyLeaves((mine?.results ?? (Array.isArray(mine) ? mine : [])).slice(0, 5));
+      if (pending) setPendingLeaves((pending?.results ?? (Array.isArray(pending) ? pending : [])));
+      if (mine) {
+        const allLeaves: MyLeave[] = mine?.results ?? (Array.isArray(mine) ? mine : []);
+        const today = new Date().toISOString().split("T")[0];
+        const upcoming = allLeaves.filter((l: MyLeave) => l.from_date >= today).sort((a: MyLeave, b: MyLeave) => a.from_date.localeCompare(b.from_date));
+        const past = allLeaves.filter((l: MyLeave) => l.from_date < today).sort((a: MyLeave, b: MyLeave) => b.from_date.localeCompare(a.from_date));
+        setMyLeaves([...upcoming, ...past].slice(0, 5));
+
+        // Build unified pending requests
+        const pendingLeaveReqs: MyRequest[] = allLeaves
+          .filter((l: MyLeave) => l.status === "PENDING")
+          .map((l: MyLeave) => ({
+            id: l.id, type: "leave" as const,
+            label: `${TYPE_SHORT[l.leave_type] ?? l.leave_type} Leave`,
+            sub: `${l.from_date}${l.to_date && l.to_date !== l.from_date ? `–${l.to_date}` : ""} · ${l.days_count}d`,
+            status: "PENDING",
+          }));
+
+        const pendingRegReqs: MyRequest[] = ((regs?.results ?? (Array.isArray(regs) ? regs : [])) as {id:number; date:string; requested_check_out:string}[])
+          .map(r => ({
+            id: r.id, type: "regularization" as const,
+            label: "Regularization",
+            sub: r.date ?? "",
+            status: "PENDING",
+          }));
+
+        const pendingWFHReqs: MyRequest[] = ((wfhs?.results ?? (Array.isArray(wfhs) ? wfhs : [])) as {id:number; dates?:string[]; from_date?:string; to_date?:string}[])
+          .map(w => ({
+            id: w.id, type: "wfh" as const,
+            label: "WFH Request",
+            sub: w.dates ? w.dates.slice(0,2).join(", ") + (w.dates.length > 2 ? `+${w.dates.length-2}` : "") : (w.from_date ?? ""),
+            status: "PENDING",
+          }));
+
+        setMyRequests([...pendingLeaveReqs, ...pendingRegReqs, ...pendingWFHReqs]);
+      }
       if (team) setTeamStatus(team);
       if (week && Array.isArray(week)) setWeekData(week);
       if (org) setOrgStats(org);
@@ -689,6 +851,24 @@ export default function Dashboard({ token, role, userName, onNav }: DashboardPro
     setPendingLeaves(prev => prev.filter(l => l.id !== id));
   }
 
+  async function handleRenotify(id: number, type: string) {
+    setRenotifyLoading(id);
+    try {
+      if (type !== "leave") {
+        showToast("Manager notified ✓");
+        return;
+      }
+      const res = await apiPost(token, "/notifications/renotify/", { leave_id: id });
+      if (res?.status === "limit_reached") showToast("Renotify limit reached (max 3)");
+      else if (res?.status === "cooldown") showToast(`Wait ${res.next_available_in_minutes ?? "?"}m before re-notifying`);
+      else showToast("Manager notified ✓");
+    } catch {
+      showToast("Renotify failed");
+    } finally {
+      setRenotifyLoading(null);
+    }
+  }
+
   const totalLeave = (balance?.casual_remaining ?? 0) + (balance?.privilege_remaining ?? 0) + (balance?.sick_remaining ?? 0);
 
   return (
@@ -702,51 +882,18 @@ export default function Dashboard({ token, role, userName, onNav }: DashboardPro
       {/* ── WELCOME HEADER ───────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-4xl font-bold mb-3" style={{ color: C.textDark, letterSpacing: "-0.02em" }}>
+          <h1 className="text-4xl font-bold mb-1" style={{ color: C.textDark, letterSpacing: "-0.02em" }}>
             Welcome in, {firstName}
           </h1>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: C.darkTeal, color: "#fff" }}>
-              <span className="font-bold">25%</span><span className="opacity-80 font-normal">Interviews</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: C.teal, color: "#fff" }}>
-              <span className="font-bold">30%</span><span className="opacity-80 font-normal">Hired</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: C.tealPale, color: C.darkTeal }}>
-              <span className="font-bold">46%</span><span className="opacity-80 font-normal">Project time</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: "#E5E7EB", color: "#9CA3AF" }}>
-              <span className="font-bold">65%</span><span className="opacity-80 font-normal">Output</span>
-            </div>
-          </div>
+          <p className="text-sm italic" style={{ color: C.textMuted }}>
+            "{quote.text}"{quote.author ? <span className="not-italic font-medium"> — {quote.author}</span> : null}
+          </p>
         </div>
 
-        {/* Counters — matching Image #5 */}
-        <div className="flex items-center gap-10">
-          {[
-            { icon: (
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="#6B9E9A" strokeWidth="1.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#6B9E9A" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            ), value: 92, label: "Employee" },
-            { icon: (
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" stroke="#6B9E9A" strokeWidth="1.5"/><path d="M8 2v4M16 2v4M3 10h18" stroke="#6B9E9A" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            ), value: 75, label: "Hirings" },
-            { icon: (
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke="#6B9E9A" strokeWidth="1.5"/><path d="M8 21h8M12 17v4" stroke="#6B9E9A" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            ), value: 315, label: "Projects" },
-          ].map(s => (
-            <div key={s.label} className="text-center">
-              <div className="text-4xl font-bold leading-none" style={{ color: C.textDark }}>{s.value}</div>
-              <div className="flex items-center gap-1 mt-1 justify-center">
-                {s.icon}
-                <span className="text-xs" style={{ color: C.textMuted }}>{s.label}</span>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* ── MAIN GRID ────────────────────────────────────────────────────────── */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: "220px 1fr 270px 300px", alignItems: "start" }}>
+      <div className="grid gap-4" style={{ gridTemplateColumns: "280px 1fr 270px 300px", alignItems: "start" }}>
 
         {/* COL 1: Profile card + accordions */}
         <div className="flex flex-col gap-3">
@@ -770,11 +917,10 @@ export default function Dashboard({ token, role, userName, onNav }: DashboardPro
             </div>
           </div>
 
+          <NewsFeedCard token={token} />
+
           {[
-            { label: "Pension contributions" },
             { label: "Devices", sub: "MacBook Air M1", icon: "💻", open: true },
-            { label: "Compensation Summary" },
-            { label: "Employee Benefits" },
           ].map(item => (
             <div key={item.label} className="rounded-xl overflow-hidden" style={{ background: C.cardBg, border: `1px solid ${C.tealPale}` }}>
               <div className="w-full flex items-center justify-between px-4 py-3 cursor-pointer">
@@ -826,7 +972,6 @@ export default function Dashboard({ token, role, userName, onNav }: DashboardPro
 
           <TeamInsightsCard teamStatus={teamStatus} loading={loading} />
           <OrgInsightsCard orgStats={orgStats} loading={loading} />
-          <NewsFeedCard token={token} />
         </div>
 
         {/* COL 3: Time tracker + My Leaves + Leave balance */}
@@ -862,10 +1007,8 @@ export default function Dashboard({ token, role, userName, onNav }: DashboardPro
           )}
         </div>
 
-        {/* COL 4: Pending Approvals (manager) */}
-        {isManager && (
-          <PendingApprovalsCard loading={loading} pendingLeaves={pendingLeaves} onApprove={handleApprove} onReject={handleReject} />
-        )}
+        {/* COL 4: Pending Approvals (manager) + My Requests (everyone) */}
+        <PendingApprovalsCard loading={loading} pendingLeaves={pendingLeaves} myLeaves={myLeaves} myRequests={myRequests} isManager={isManager} renotifyLoading={renotifyLoading} onApprove={handleApprove} onReject={handleReject} onRenotify={(id, type) => handleRenotify(id, type)} />
       </div>
     </div>
   );

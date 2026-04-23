@@ -178,16 +178,20 @@ export default function AppShell() {
     };
   }
 
-  function handleMarkRead(id: number) {
+  function handleMarkRead(id: number, navTarget?: NavPage) {
     const tk = getAccess();
     if (tk) {
-      fetch(`${import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api"}/notifications/${id}/mark_read/`, {
+      fetch(`${import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api"}/notifications/${id}/read/`, {
         method: "POST",
         headers: { Authorization: `Bearer ${tk}` },
       }).catch(() => {});
     }
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    setUnreadCount(c => Math.max(0, c - 1));
+    setUnreadCount(c => {
+      const notif = notifications.find(n => n.id === id);
+      return notif && !notif.read ? Math.max(0, c - 1) : c;
+    });
+    if (navTarget) setPage(navTarget);
   }
 
   function handleLogout() {

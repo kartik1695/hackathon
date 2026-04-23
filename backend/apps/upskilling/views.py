@@ -241,3 +241,262 @@ class TeamRoadmapsView(APIView):
             qs = qs.filter(status=status_filter.upper())
 
         return Response(SkillRoadmapListSerializer(qs, many=True).data)
+
+
+class OrgLearningInsightsView(APIView):
+    """
+    GET /upskilling/org-insights/
+    Org-wide learning analytics:
+    - trending skills (top 10 by roadmap count)
+    - dept breakdown (skills per dept)
+    - status distribution
+    - team insights (manager only: per-member progress)
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsEmployee]
+
+    def get(self, request):
+        from django.db.models import Count, Avg
+        from django.utils import timezone
+        from datetime import timedelta
+        from apps.employees.models import Employee
+
+        emp = _get_employee(request.user)
+        if not emp:
+            return Response({"error": "Employee profile not found"}, status=404)
+
+        active_statuses = ["IN_PROGRESS", "PENDING_APPROVAL", "PENDING_REVIEW", "COMPLETED"]
+        now = timezone.now()
+        thirty_days_ago = now - timedelta(days=30)
+        seven_days_ago = now - timedelta(days=7)
+
+        # Trending skills org-wide
+        trending = list(
+            SkillRoadmap.objects
+            .filter(status__in=active_statuses)
+            .values("skill_name")
+            .annotate(count=Count("id"))
+            .order_by("-count")[:10]
+        )
+
+        # Department breakdown with completion rate
+        dept_raw = (
+            SkillRoadmap.objects
+            .filter(status__in=active_statuses)
+            .select_related("employee__department")
+            .values("employee__department__name")
+            .annotate(total=Count("id"), done=Count("id", filter=Count("id", filter=None)))
+            .order_by("-total")[:8]
+        )
+        # simpler dept breakdown
+        from django.db.models import Q as DQ
+        dept_data = []
+        for dept_name in (
+            SkillRoadmap.objects
+            .filter(status__in=active_statuses)
+            .values_list("employee__department__name", flat=True)
+            .distinct()
+        ):
+            total_d = SkillRoadmap.objects.filter(employee__department__name=dept_name, status__in=active_statuses).count()
+            completed_d = SkillRoadmap.objects.filter(employee__department__name=dept_name, status="COMPLETED").count()
+            dept_data.append({
+                "dept": dept_name or "Unknown",
+                "count": total_d,
+                "completed": completed_d,
+                "completion_rate": round(completed_d / total_d * 100) if total_d else 0,
+            })
+        dept_data.sort(key=lambda x: -x["count"])
+
+        # Status distribution
+        status_dist = list(
+            SkillRoadmap.objects.values("status").annotate(count=Count("id"))
+        )
+
+        # Totals
+        total = SkillRoadmap.objects.count()
+        completed = SkillRoadmap.objects.filter(status="COMPLETED").count()
+        in_progress = SkillRoadmap.objects.filter(status="IN_PROGRESS").count()
+        new_this_month = SkillRoadmap.objects.filter(created_at__gte=thirty_days_ago).count()
+        new_this_week = SkillRoadmap.objects.filter(created_at__gte=seven_days_ago).count()
+
+        # Active learners count
+        active_learners = (
+            SkillRoadmap.objects
+            .filter(status__in=["IN_PROGRESS", "PENDING_REVIEW"])
+            .values("employee_id").distinct().count()
+        )
+
+        # Top learners (most completed steps)
+        from .models import RoadmapStep
+        top_learners = []
+        learner_data = (
+            RoadmapStep.objects
+            .filter(is_completed=True)
+            .values("roadmap__employee__user__name", "roadmap__employee_id")
+            .annotate(steps_done=Count("id"))
+            .order_by("-steps_done")[:5]
+        )
+        for ld in learner_data:
+            top_learners.append({
+                "name": ld["roadmap__employee__user__name"] or "Unknown",
+                "steps_done": ld["steps_done"],
+            })
+
+        # Skills completed this month
+        skills_completed_month = RoadmapStep.objects.filter(
+            is_completed=True, completed_at__gte=thirty_days_ago
+        ).count()
+
+        # Recent activity (last 7 roadmaps created)
+        recent_roadmaps = list(
+            SkillRoadmap.objects
+            .select_related("employee__user")
+            .order_by("-created_at")[:7]
+            .values("skill_name", "status", "employee__user__name", "created_at")
+        )
+
+        # Team insights (manager)
+        team_insights = []
+        if emp.role in ("manager", "hr", "admin"):
+            reports = Employee.objects.filter(manager=emp, is_active=True).select_related("user")
+            for r in reports:
+                r_roadmaps = list(SkillRoadmap.objects.filter(employee=r).prefetch_related("steps"))
+                total_steps = 0
+                done_steps = 0
+                skills = []
+                for rm in r_roadmaps:
+                    steps = list(rm.steps.all())
+                    total_steps += len(steps)
+                    done_steps += sum(1 for s in steps if s.is_completed)
+                    if rm.status in active_statuses:
+                        skills.append({"skill": rm.skill_name, "status": rm.status})
+                team_insights.append({
+                    "id": r.id,
+                    "name": r.user.name if r.user else "",
+                    "active_skills": skills,
+                    "steps_completed": done_steps,
+                    "steps_total": total_steps,
+                    "completion_pct": round(done_steps / total_steps * 100) if total_steps else 0,
+                })
+            team_insights.sort(key=lambda x: -x["completion_pct"])
+
+        return Response({
+            "trending_skills": trending,
+            "dept_breakdown": dept_data[:8],
+            "status_distribution": status_dist,
+            "total_roadmaps": total,
+            "completed_roadmaps": completed,
+            "in_progress_roadmaps": in_progress,
+            "completion_rate": round(completed / total * 100) if total else 0,
+            "active_learners": active_learners,
+            "new_this_month": new_this_month,
+            "new_this_week": new_this_week,
+            "skills_completed_month": skills_completed_month,
+            "top_learners": top_learners,
+            "recent_activity": [
+                {
+                    "skill": r["skill_name"],
+                    "status": r["status"],
+                    "employee": r["employee__user__name"] or "Unknown",
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else "",
+                }
+                for r in recent_roadmaps
+            ],
+            "team_insights": team_insights,
+        })
+
+
+class DeptPeersRoadmapsView(APIView):
+    """
+    GET /upskilling/dept-peers/
+    Returns approved/active roadmaps of dept peers (excluding own).
+    Used by employees to discover what colleagues are learning.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsEmployee]
+
+    def get(self, request):
+        emp = _get_employee(request.user)
+        if not emp:
+            return Response({"error": "Employee profile not found"}, status=404)
+
+        qs = (
+            SkillRoadmap.objects
+            .filter(
+                employee__department=emp.department,
+                status__in=["IN_PROGRESS", "COMPLETED", "PENDING_REVIEW"],
+            )
+            .exclude(employee=emp)
+            .select_related("employee__user", "employee__department")
+            .prefetch_related("steps")
+            .order_by("-updated_at")[:30]
+        )
+        return Response(SkillRoadmapListSerializer(qs, many=True).data)
+
+
+class CopyRoadmapView(APIView):
+    """
+    POST /upskilling/roadmaps/<pk>/copy/
+    Employee copies a peer's roadmap steps into their own new roadmap → PENDING_APPROVAL.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsEmployee]
+
+    def post(self, request, pk):
+        emp = _get_employee(request.user)
+        if not emp:
+            return Response({"error": "Employee profile not found"}, status=404)
+
+        try:
+            source = SkillRoadmap.objects.prefetch_related("steps").get(pk=pk)
+        except SkillRoadmap.DoesNotExist:
+            return Response({"error": "Roadmap not found"}, status=404)
+
+        if source.employee_id == emp.id:
+            return Response({"error": "Cannot copy your own roadmap"}, status=400)
+
+        # Check not already have same skill in progress
+        existing = SkillRoadmap.objects.filter(
+            employee=emp,
+            skill_name=source.skill_name,
+            status__in=["IN_PROGRESS", "PENDING_APPROVAL", "PENDING_REVIEW"],
+        ).exists()
+        if existing:
+            return Response({"error": f"You already have an active roadmap for {source.skill_name}"}, status=400)
+
+        # Create copy
+        new_roadmap = SkillRoadmap.objects.create(
+            employee=emp,
+            skill_name=source.skill_name,
+            description=f"Copied from {source.employee.user.name if source.employee.user else 'colleague'}. {source.description}",
+            status="PENDING_APPROVAL",
+        )
+        for step in source.steps.order_by("order"):
+            RoadmapStep.objects.create(
+                roadmap=new_roadmap,
+                title=step.title,
+                description=step.description,
+                order=step.order,
+                resource_url=step.resource_url,
+                resource_type=step.resource_type,
+                phase=step.phase,
+                difficulty=step.difficulty,
+                duration=step.duration,
+                status="PENDING",
+            )
+
+        # Notify manager
+        try:
+            from apps.notifications.services import InAppNotificationService
+            if emp.manager and emp.manager.user:
+                InAppNotificationService().create_notification(
+                    recipient_email=emp.manager.user.email,
+                    subject=f"Roadmap Approval: {emp.user.name} copied '{source.skill_name}'",
+                    body=f"{emp.user.name} copied a peer roadmap for '{source.skill_name}' and needs your approval.",
+                    metadata={"roadmap_id": new_roadmap.id, "employee_id": emp.id, "action_required": True},
+                )
+        except Exception:
+            pass
+
+        new_roadmap.refresh_from_db()
+        return Response(SkillRoadmapSerializer(new_roadmap).data, status=201)

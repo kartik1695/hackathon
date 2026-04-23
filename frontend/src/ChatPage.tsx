@@ -1157,7 +1157,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       <aside
         className="flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden relative z-20"
         style={{
-          width: sidebarOpen ? "256px" : "0px",
+          width: sidebarOpen ? "300px" : "0px",
           background: "#0E1117",
           borderRight: "1px solid rgba(255,255,255,0.06)",
         }}
@@ -1197,7 +1197,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
           ) : (
             grouped.map(({ label, items }) => (
               <div key={label} className="mb-4">
-                <p className="text-[9px] font-bold uppercase tracking-[0.12em] px-2 py-1 mb-1" style={{ color: "rgba(255,255,255,0.2)" }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-1 mb-1" style={{ color: "rgba(255,255,255,0.2)" }}>
                   {label}
                 </p>
                 {items.map((s) => {
@@ -1206,7 +1206,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                     <button
                       key={s.session_id}
                       onClick={() => loadSession(s)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-[11px] transition-all mb-0.5 truncate leading-snug`}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-[13px] transition-all mb-0.5 truncate leading-snug`}
                       style={isActive
                         ? { background: "rgba(255,255,255,0.1)", color: "white", borderLeft: "2px solid var(--primary)" }
                         : { color: "rgba(255,255,255,0.35)", borderLeft: "2px solid transparent" }

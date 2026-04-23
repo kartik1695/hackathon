@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 
 const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
@@ -664,34 +664,450 @@ function ManagerView({ token }: { token: string }) {
   );
 }
 
+// ── Learning Insights (everyone) ─────────────────────────────────────────────
+
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, RadialBarChart, RadialBar, Legend,
+} from "recharts";
+
+interface OrgInsights {
+  trending_skills: { skill_name: string; count: number }[];
+  dept_breakdown: { dept: string; count: number; completed: number; completion_rate: number }[];
+  status_distribution: { status: string; count: number }[];
+  total_roadmaps: number;
+  completed_roadmaps: number;
+  in_progress_roadmaps: number;
+  completion_rate: number;
+  active_learners: number;
+  new_this_month: number;
+  new_this_week: number;
+  skills_completed_month: number;
+  top_learners: { name: string; steps_done: number }[];
+  recent_activity: { skill: string; status: string; employee: string; created_at: string }[];
+  team_insights: {
+    id: number; name: string;
+    active_skills: { skill: string; status: string }[];
+    steps_completed: number; steps_total: number; completion_pct: number;
+  }[];
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING_APPROVAL: "Pending", IN_PROGRESS: "In Progress",
+  PENDING_REVIEW: "In Review", COMPLETED: "Completed",
+  ABANDONED: "Abandoned", REJECTED: "Rejected",
+};
+const PIE_COLORS = ["#3B82F6","#10B981","#8B5CF6","#F59E0B","#EF4444","#6B7280"];
+const AV_COLORS = ["#0D9488","#3B82F6","#8B5CF6","#F59E0B","#EC4899","#14B8A6"];
+
+function MiniBar({ pct, color = "var(--primary)" }: { pct: number; color?: string }) {
+  return (
+    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--primary-pale)" }}>
+      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, pct)}%`, background: color }} />
+    </div>
+  );
+}
+
+function Kpi({ icon, value, label, sub, accent = "var(--primary)" }: { icon: string; value: string | number; label: string; sub?: string; accent?: string }) {
+  return (
+    <div className="p-5 rounded-2xl flex flex-col gap-2" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base" style={{ background: accent + "20" }}>{icon}</div>
+      <div className="text-2xl font-black leading-none" style={{ color: "var(--text-dark)" }}>{value}</div>
+      <div className="text-xs font-semibold" style={{ color: "var(--text-dark)" }}>{label}</div>
+      {sub && <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>{sub}</div>}
+    </div>
+  );
+}
+
+function LearningInsightsView({ token, isManager }: { token: string; isManager: boolean }) {
+  const [insights, setInsights] = useState<OrgInsights | null>(null);
+  const [peers, setPeers] = useState<Roadmap[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [copyState, setCopyState] = useState<Record<number, "idle" | "loading" | "done" | "err">>({});
+  const [tab, setTab] = useState<"analytics" | "peers" | "team">("analytics");
+  const [skillFilter, setSkillFilter] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      apiGet(token, "/upskilling/org-insights/"),
+      apiGet(token, "/upskilling/dept-peers/"),
+    ]).then(([ins, p]) => {
+      if (ins && !ins.error) setInsights(ins);
+      if (Array.isArray(p)) setPeers(p);
+    }).finally(() => setLoading(false));
+  }, [token]);
+
+  async function copyRoadmap(id: number) {
+    setCopyState(s => ({ ...s, [id]: "loading" }));
+    try {
+      const res = await apiPost(token, `/upskilling/roadmaps/${id}/copy/`);
+      if (res.error) { setCopyState(s => ({ ...s, [id]: "err" })); return; }
+      setCopyState(s => ({ ...s, [id]: "done" }));
+    } catch {
+      setCopyState(s => ({ ...s, [id]: "err" }));
+    }
+  }
+
+  const filteredPeers = useMemo(() =>
+    peers.filter(p => !skillFilter || p.skill_name.toLowerCase().includes(skillFilter.toLowerCase())),
+    [peers, skillFilter]
+  );
+
+  const TABS = [
+    { id: "analytics", label: "📊 Org Analytics" },
+    { id: "peers", label: "👥 Peer Learning" },
+    ...(isManager ? [{ id: "team", label: "🎯 Team Progress" }] : []),
+  ] as { id: string; label: string }[];
+
+  if (loading) return (
+    <div className="grid grid-cols-4 gap-4 mt-4">
+      {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="h-32 rounded-2xl animate-pulse" style={{ background: "var(--primary-pale)", gridColumn: i <= 4 ? undefined : i === 5 ? "span 2" : i === 7 ? "span 2" : undefined }} />)}
+    </div>
+  );
+
+  const pieData = (insights?.status_distribution ?? []).map(s => ({
+    name: STATUS_LABEL[s.status] ?? s.status,
+    value: s.count,
+  }));
+
+  const trendData = (insights?.trending_skills ?? []).slice(0, 8).map(s => ({
+    name: s.skill_name.length > 18 ? s.skill_name.slice(0, 16) + "…" : s.skill_name,
+    count: s.count,
+  }));
+
+  const deptData = (insights?.dept_breakdown ?? []).slice(0, 6).map(d => ({
+    name: d.dept.length > 14 ? d.dept.slice(0, 12) + "…" : d.dept,
+    total: d.count,
+    completed: d.completed,
+  }));
+
+  return (
+    <div>
+      {/* Sub-tab bar */}
+      <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: "var(--primary-pale)" }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
+            className="text-xs font-semibold px-4 py-2 rounded-lg transition-all"
+            style={{ background: tab === t.id ? "var(--primary)" : "transparent", color: tab === t.id ? "white" : "var(--text-muted)" }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Analytics ── */}
+      {tab === "analytics" && insights && (
+        <div className="space-y-5">
+          {/* KPI row — 6 metrics */}
+          <div className="grid grid-cols-6 gap-3">
+            <Kpi icon="📚" value={insights.total_roadmaps} label="Total Roadmaps" sub="org-wide" />
+            <Kpi icon="✅" value={insights.completed_roadmaps} label="Completed" accent="#10B981" />
+            <Kpi icon="⚡" value={insights.in_progress_roadmaps} label="In Progress" accent="#3B82F6" />
+            <Kpi icon="👥" value={insights.active_learners} label="Active Learners" accent="#8B5CF6" />
+            <Kpi icon="🆕" value={insights.new_this_month} label="New This Month" sub={`${insights.new_this_week} this week`} accent="#F59E0B" />
+            <Kpi icon="🎯" value={`${insights.completion_rate}%`} label="Completion Rate" accent="#10B981" />
+          </div>
+
+          {/* Row 2: Trending bar chart + Pie status */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2 p-5 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold" style={{ color: "var(--text-dark)" }}>🔥 Trending Skills Across Org</h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+                  Top {trendData.length}
+                </span>
+              </div>
+              {trendData.length === 0 ? (
+                <div className="text-center py-10 text-xs" style={{ color: "var(--text-muted)" }}>No roadmap data yet</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={trendData} barSize={22} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "var(--text-dark)" }} axisLine={false} tickLine={false} width={110} />
+                    <Tooltip
+                      contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--card-border)", borderRadius: 12, fontSize: 12 }}
+                      formatter={(v: number) => [v, "Learners"]}
+                    />
+                    <Bar dataKey="count" fill="var(--primary)" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div className="p-5 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+              <h3 className="text-sm font-bold mb-4" style={{ color: "var(--text-dark)" }}>📋 Status Breakdown</h3>
+              {pieData.length === 0 ? (
+                <div className="text-center py-10 text-xs" style={{ color: "var(--text-muted)" }}>No data yet</div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={72} paddingAngle={3} dataKey="value">
+                        {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--card-border)", borderRadius: 10, fontSize: 11 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-1.5 mt-2">
+                    {pieData.map((d, i) => (
+                      <div key={d.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{d.name}</span>
+                        </div>
+                        <span className="text-[10px] font-bold" style={{ color: "var(--text-dark)" }}>{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Row 3: Dept chart + Top learners + Recent activity */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2 p-5 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+              <h3 className="text-sm font-bold mb-4" style={{ color: "var(--text-dark)" }}>🏢 Learning Activity by Department</h3>
+              {deptData.length === 0 ? (
+                <div className="text-center py-10 text-xs" style={{ color: "var(--text-muted)" }}>No department data yet</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={deptData} barGap={3} barCategoryGap="28%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--card-border)", borderRadius: 12, fontSize: 11 }} />
+                    <Bar dataKey="total" name="Active" fill="#3B82F6" radius={[4,4,0,0]} />
+                    <Bar dataKey="completed" name="Completed" fill="#10B981" radius={[4,4,0,0]} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {/* Top learners */}
+              <div className="p-5 rounded-2xl flex-1" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+                <h3 className="text-sm font-bold mb-3" style={{ color: "var(--text-dark)" }}>🏆 Top Learners</h3>
+                {insights.top_learners.length === 0 ? (
+                  <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>No completions yet</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {insights.top_learners.map((l, i) => (
+                      <div key={l.name} className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white flex-shrink-0"
+                          style={{ background: i === 0 ? "#F59E0B" : i === 1 ? "#9CA3AF" : i === 2 ? "#B45309" : "var(--primary)" }}>
+                          {i + 1}
+                        </div>
+                        <span className="text-xs font-medium flex-1 truncate" style={{ color: "var(--text-dark)" }}>{l.name.split(" ")[0]}</span>
+                        <span className="text-[10px] font-bold" style={{ color: "var(--primary)" }}>{l.steps_done} steps</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Skills completed this month */}
+              <div className="p-4 rounded-2xl" style={{ background: "linear-gradient(135deg, var(--primary-dark), var(--primary))", border: "none" }}>
+                <div className="text-white/60 text-[10px] font-semibold uppercase tracking-wide">Steps Completed</div>
+                <div className="text-3xl font-black text-white mt-1">{insights.skills_completed_month}</div>
+                <div className="text-white/60 text-[10px] mt-0.5">last 30 days</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 4: Recent activity feed */}
+          <div className="p-5 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+            <h3 className="text-sm font-bold mb-4" style={{ color: "var(--text-dark)" }}>⚡ Recent Learning Activity</h3>
+            {insights.recent_activity.length === 0 ? (
+              <p className="text-xs text-center py-6" style={{ color: "var(--text-muted)" }}>No activity yet</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                {insights.recent_activity.map((a, i) => (
+                  <div key={i} className="flex items-center gap-3 py-1.5" style={{ borderBottom: i < insights.recent_activity.length - 2 ? "1px solid var(--card-border)" : undefined }}>
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: STATUS_COLOR[a.status] ?? "#9CA3AF" }} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold truncate block" style={{ color: "var(--text-dark)" }}>{a.skill}</span>
+                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{a.employee} · {STATUS_LABEL[a.status] ?? a.status}</span>
+                    </div>
+                    <span className="text-[10px] flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+                      {a.created_at ? new Date(a.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Peer learning ── */}
+      {tab === "peers" && (
+        <div>
+          <div className="flex items-center gap-3 mb-5">
+            <input
+              type="text" placeholder="Search skills…" value={skillFilter}
+              onChange={e => setSkillFilter(e.target.value)}
+              className="text-sm px-4 py-2.5 rounded-xl border outline-none"
+              style={{ borderColor: "var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)", minWidth: 240 }}
+            />
+            <span className="text-xs px-3 py-1.5 rounded-lg font-semibold" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+              {filteredPeers.length} roadmap{filteredPeers.length !== 1 ? "s" : ""} in your dept
+            </span>
+          </div>
+          {filteredPeers.length === 0 ? (
+            <div className="text-center py-24 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+              <div className="text-5xl mb-4">👥</div>
+              <p className="text-base font-bold" style={{ color: "var(--text-dark)" }}>No peer roadmaps yet</p>
+              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Your department colleagues haven't shared roadmaps yet</p>
+            </div>
+          ) : (
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+              {filteredPeers.map(r => {
+                const cs = copyState[r.id] ?? "idle";
+                const pct = r.step_count ? Math.round(((r.completed_steps ?? 0) / r.step_count) * 100) : 0;
+                return (
+                  <div key={r.id} className="p-5 rounded-2xl flex flex-col gap-3 hover:shadow-md transition-shadow"
+                    style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold" style={{ color: "var(--text-dark)" }}>{r.skill_name}</h4>
+                        <p className="text-[11px] mt-0.5 font-medium" style={{ color: "var(--text-muted)" }}>by {r.employee_name}</p>
+                      </div>
+                      <StatusBadge status={r.status} />
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{r.completed_steps ?? 0}/{r.step_count ?? 0} steps</span>
+                        <span className="text-[10px] font-bold" style={{ color: "var(--primary)" }}>{pct}%</span>
+                      </div>
+                      <MiniBar pct={pct} />
+                    </div>
+                    {r.description && (
+                      <p className="text-[11px] line-clamp-2 leading-relaxed" style={{ color: "var(--text-muted)" }}>{r.description}</p>
+                    )}
+                    <button
+                      onClick={() => copyRoadmap(r.id)}
+                      disabled={cs === "loading" || cs === "done"}
+                      className="w-full text-xs font-bold py-2.5 rounded-xl transition-all disabled:opacity-60 mt-auto"
+                      style={{
+                        background: cs === "done" ? "#D1FAE5" : cs === "err" ? "#FEE2E2" : "var(--primary)",
+                        color: cs === "done" ? "#065F46" : cs === "err" ? "#991B1B" : "white",
+                      }}
+                    >
+                      {cs === "loading" ? "Copying…" : cs === "done" ? "✓ Copied — awaiting manager approval" : cs === "err" ? "⚠ Already have this skill active" : "📋 Copy to my roadmap"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Team progress (manager) ── */}
+      {tab === "team" && isManager && insights && (
+        <div>
+          {insights.team_insights.length === 0 ? (
+            <div className="text-center py-24 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+              <div className="text-5xl mb-4">🎯</div>
+              <p className="text-base font-bold" style={{ color: "var(--text-dark)" }}>No team learning data yet</p>
+              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Your direct reports haven't started any roadmaps</p>
+            </div>
+          ) : (
+            <>
+              {/* Radial chart overview */}
+              <div className="p-5 rounded-2xl mb-5" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+                <h3 className="text-sm font-bold mb-4" style={{ color: "var(--text-dark)" }}>📊 Team Step Completion Overview</h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={insights.team_insights.map(m => ({ name: m.name.split(" ")[0], pct: m.completion_pct, steps: m.steps_total }))} barSize={32}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--text-dark)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
+                    <Tooltip
+                      contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--card-border)", borderRadius: 12, fontSize: 11 }}
+                      formatter={(v: number) => [`${v}%`, "Completion"]}
+                    />
+                    <Bar dataKey="pct" radius={[6,6,0,0]}>
+                      {insights.team_insights.map((_, i) => <Cell key={i} fill={AV_COLORS[i % AV_COLORS.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Per-member cards */}
+              <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+                {insights.team_insights.map((m, i) => (
+                  <div key={m.id} className="p-5 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white flex-shrink-0"
+                        style={{ background: AV_COLORS[i % AV_COLORS.length] }}>
+                        {m.name.split(" ").map(w => w[0]).slice(0,2).join("").toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold" style={{ color: "var(--text-dark)" }}>{m.name}</div>
+                        <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {m.active_skills.length} skill{m.active_skills.length !== 1 ? "s" : ""} · {m.steps_completed}/{m.steps_total} steps
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-lg font-black" style={{ color: AV_COLORS[i % AV_COLORS.length] }}>{m.completion_pct}%</div>
+                      </div>
+                    </div>
+                    <MiniBar pct={m.completion_pct} color={AV_COLORS[i % AV_COLORS.length]} />
+                    {m.active_skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {m.active_skills.slice(0, 4).map(s => (
+                          <span key={s.skill} className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                            style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+                            {s.skill.length > 18 ? s.skill.slice(0, 16) + "…" : s.skill}
+                          </span>
+                        ))}
+                        {m.active_skills.length > 4 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "var(--card-border)", color: "var(--text-muted)" }}>
+                            +{m.active_skills.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main export ──────────────────────────────────────────────────────────────
 
 export default function UpskillPage({ token, role }: { token: string; role: string }) {
   const isManager = ["manager", "hr", "cfo", "admin"].includes(role);
-  const [view, setView] = useState<"my" | "team">("my");
+  const [view, setView] = useState<"my" | "team" | "insights">("my");
+
+  const VIEWS = [
+    { id: "my", label: "My Roadmaps" },
+    ...(isManager ? [{ id: "team", label: "Team Approvals" }] : []),
+    { id: "insights", label: "📊 Learning Insights" },
+  ] as { id: string; label: string }[];
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      {isManager && (
-        <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: "var(--primary-pale)" }}>
-          <button
-            onClick={() => setView("my")}
+      <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: "var(--primary-pale)" }}>
+        {VIEWS.map(v => (
+          <button key={v.id} onClick={() => setView(v.id as typeof view)}
             className="text-xs font-semibold px-5 py-2 rounded-lg transition-all"
-            style={{ background: view === "my" ? "var(--primary)" : "transparent", color: view === "my" ? "white" : "var(--text-muted)" }}
-          >
-            My Roadmaps
+            style={{ background: view === v.id ? "var(--primary)" : "transparent", color: view === v.id ? "white" : "var(--text-muted)" }}>
+            {v.label}
           </button>
-          <button
-            onClick={() => setView("team")}
-            className="text-xs font-semibold px-5 py-2 rounded-lg transition-all"
-            style={{ background: view === "team" ? "var(--primary)" : "transparent", color: view === "team" ? "white" : "var(--text-muted)" }}
-          >
-            Team Approvals
-          </button>
-        </div>
-      )}
-      {(view === "my" || !isManager) && <EmployeeView token={token} />}
+        ))}
+      </div>
+      {view === "my" && <EmployeeView token={token} />}
       {view === "team" && isManager && <ManagerView token={token} />}
+      {view === "insights" && <LearningInsightsView token={token} isManager={isManager} />}
     </div>
   );
 }

@@ -4,6 +4,8 @@ from rest_framework import status
 
 from core.permissions import IsEmployee, IsHR, IsManager
 
+from .models import AttendanceLog
+
 from .serializers import (
     AttendanceCheckInSerializer,
     AttendanceLogSerializer,
@@ -223,12 +225,17 @@ class RegularizationListView(APIView):
         from .repositories import RegularizationReadRepository
         repo = RegularizationReadRepository()
 
+        extra = {}
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            extra["status"] = status_filter.upper()
+
         if employee.role in ("hr", "admin"):
-            items = repo.list()
+            items = repo.list(**extra)
         elif employee.role in ("manager",):
-            items = repo.list(employee__manager_id=employee.id)
+            items = repo.list(employee__manager_id=employee.id, **extra)
         else:
-            items = repo.list(employee_id=employee.id)
+            items = repo.list(employee_id=employee.id, **extra)
 
         return Response(RegularizationRequestSerializer(items, many=True).data)
 
@@ -323,12 +330,17 @@ class WFHListView(APIView):
         from .repositories import WFHReadRepository
         repo = WFHReadRepository()
 
+        extra = {}
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            extra["status"] = status_filter.upper()
+
         if employee.role in ("hr", "admin"):
-            items = repo.list()
+            items = repo.list(**extra)
         elif employee.role in ("manager",):
-            items = repo.list(employee__manager_id=employee.id)
+            items = repo.list(employee__manager_id=employee.id, **extra)
         else:
-            items = repo.list(employee_id=employee.id)
+            items = repo.list(employee_id=employee.id, **extra)
 
         return Response(WFHRequestSerializer(items, many=True).data)
 
