@@ -36,6 +36,7 @@ const NAV_TABS: { id: NavPage; label: string; activeFor?: NavPage[] }[] = [
   { id: "attendance", label: "Attendance",  activeFor: ["attendance"] },
   { id: "leaves",     label: "Leave",       activeFor: ["leaves"] },
   { id: "upskilling", label: "Upskilling",  activeFor: ["upskilling"] },
+  { id: "feedback",   label: "Pulse",       activeFor: ["feedback"] },
   { id: "chat",       label: "AI Insights", activeFor: ["chat"] },
   { id: "employees",  label: "Reports" },
 ];
@@ -221,7 +222,7 @@ export default function TopBar({ page, notifications, unreadCount, onMarkRead, o
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-semibold truncate" style={{ color: "var(--text-dark)" }}>{n.subject}</div>
                           <div className="text-xs mt-0.5 line-clamp-2 leading-relaxed" style={{ color: textMuted }}>{n.body}</div>
-                          {n.metadata?.actioned_by_name && (
+                          {!!n.metadata?.actioned_by_name && (
                             <div className="text-[10px] mt-1" style={{ color: textMuted }}>
                               {String(n.metadata.status) === "APPROVED" ? "✓ Approved" : "✗ Rejected"} by{" "}
                               <span className="font-semibold" style={{ color: "var(--text-dark)" }}>{String(n.metadata.actioned_by_name)}</span>

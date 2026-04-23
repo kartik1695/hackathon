@@ -206,6 +206,193 @@ def generate_skill_roadmap(employee_id: int, requester_id: int, requester_role: 
     return result
 
 
+@tool("save_roadmap_draft")
+def save_roadmap_draft(employee_id: int, requester_id: int, requester_role: str, input_data: dict | None = None) -> dict:
+    """Generate a personalized AI roadmap draft from mentor Q&A context. Does NOT notify manager — employee reviews first."""
+    err = ensure_role(requester_role, ["employee", "manager", "hr", "admin"])
+    if err:
+        return err
+
+    d = input_data or {}
+    skill_name = (d.get("skill_name") or "").strip()
+    mentor_context = d.get("mentor_context") or {}
+
+    if not skill_name:
+        return {"error": "skill_name is required to generate a roadmap draft"}
+
+    level = mentor_context.get("level", "Beginner")
+    goal = mentor_context.get("goal", "Professional growth")
+    time_per_week = mentor_context.get("time_per_week", "5-10h")
+    timeline = mentor_context.get("timeline", "3 months")
+    modification_notes = (d.get("modification_notes") or "").strip()
+
+    # Determine step count from timeline
+    step_count_map = {"1 month": 5, "3 months": 8, "6 months": 10, "1 year": 14}
+    target_steps = step_count_map.get(timeline, 8)
+
+    from core.llm.factory import LLMProviderFactory
+    from core.llm.base import LLMMessage
+
+    system_prompt = (
+        "You are a Senior Learning & Development Architect. Design a personalized, practical career roadmap.\n"
+        "Return ONLY valid JSON — no markdown fences, no explanation.\n\n"
+        "Schema:\n"
+        "{\n"
+        "  \"description\": \"<2-3 sentence personalized description mentioning their goal and timeline>\",\n"
+        "  \"steps\": [\n"
+        "    {\n"
+        "      \"phase\": \"Foundation\" | \"Tactical Implementation\" | \"Strategic Mastery\",\n"
+        "      \"title\": \"<clear, specific step title>\",\n"
+        "      \"description\": \"<what they will learn and why it matters for their goal>\",\n"
+        "      \"difficulty\": \"Beginner\" | \"Intermediate\" | \"Advanced\",\n"
+        "      \"duration\": <integer hours>,\n"
+        "      \"resource_type\": \"video\",\n"
+        "      \"resource_url\": \"<REAL YouTube URL — must be https://www.youtube.com/watch?v=... or https://youtu.be/ — NO placeholder URLs>\"\n"
+        "    }\n"
+        "  ]\n"
+        "}\n\n"
+        "RULES:\n"
+        "- Steps must be tailored: beginner skips nothing; advanced skips basics\n"
+        "- Goal shapes content: 'career switch' = breadth; 'certification' = focused; 'current role' = practical\n"
+        "- Timeline shapes count: match approximately these targets — 1 month: 5 steps, 3 months: 8, 6 months: 10, 1 year: 14\n"
+        "- Duration per step must match time_per_week: low hours = 1-2h steps; high hours = 3-5h steps\n"
+        "- CRITICAL: resource_url must be a REAL, working YouTube video link relevant to the step topic. NEVER use placeholder text.\n"
+        "- Distribute phases: Foundation ~30%, Tactical ~40%, Strategic ~30%\n"
+    )
+
+    user_prompt = (
+        f"Skill: {skill_name}\n"
+        f"Current level: {level}\n"
+        f"Primary goal: {goal}\n"
+        f"Weekly commitment: {time_per_week}\n"
+        f"Timeline: {timeline}\n"
+        f"Target step count: ~{target_steps}\n"
+        + (f"MODIFICATIONS REQUESTED: {modification_notes}\n" if modification_notes else "")
+        + "\nGenerate a roadmap tailored to these exact parameters."
+        + (" Apply the modifications strictly." if modification_notes else "")
+    )
+
+    try:
+        provider = LLMProviderFactory.get_provider()
+        resp = provider.complete([
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt),
+        ], temperature=0.1)
+        content = resp.content.strip()
+        roadmap_data = json.loads(re.search(r'\{.*\}', content, re.DOTALL).group(0)) if '{' in content else json.loads(content)
+    except Exception as exc:
+        logger.exception("Failed to generate roadmap draft content")
+        return {"error": f"Failed to generate roadmap: {str(exc)}"}
+
+    description = roadmap_data.get("description", "")
+    steps = roadmap_data.get("steps", [])
+
+    if not steps:
+        return {"error": "AI generated empty roadmap. Please try again."}
+
+    from apps.upskilling.models import DraftRoadmap
+
+    # Overwrite any existing READY draft for same skill
+    DraftRoadmap.objects.filter(employee_id=employee_id, skill_name__iexact=skill_name, status="READY").delete()
+
+    draft = DraftRoadmap.objects.create(
+        employee_id=employee_id,
+        skill_name=skill_name,
+        status="READY",
+        mentor_context=mentor_context,
+        draft_description=description,
+        draft_steps=steps,
+    )
+
+    return {
+        "draft_id": draft.id,
+        "skill_name": skill_name,
+        "status": "READY",
+        "description": description,
+        "steps": steps,
+        "mentor_context": mentor_context,
+        "step_count": len(steps),
+        "message": f"Draft roadmap for '{skill_name}' is ready for your review. {len(steps)} personalized steps across 3 phases.",
+    }
+
+
+@tool("confirm_roadmap_draft")
+def confirm_roadmap_draft(employee_id: int, requester_id: int, requester_role: str, input_data: dict | None = None) -> dict:
+    """Submit the draft roadmap for manager approval. Called only when employee confirms the draft."""
+    err = ensure_role(requester_role, ["employee", "manager", "hr", "admin"])
+    if err:
+        return err
+
+    d = input_data or {}
+    draft_id = d.get("draft_id")
+    skill_name = (d.get("skill_name") or "").strip()
+
+    from apps.upskilling.models import DraftRoadmap, SkillRoadmap, RoadmapStep
+
+    draft = None
+    if draft_id:
+        draft = DraftRoadmap.objects.filter(id=draft_id, employee_id=employee_id, status="READY").first()
+    if not draft and skill_name:
+        draft = DraftRoadmap.objects.filter(employee_id=employee_id, skill_name__iexact=skill_name, status="READY").first()
+    if not draft:
+        return {"error": "No ready draft found. Please generate a draft first."}
+
+    existing = SkillRoadmap.objects.filter(
+        employee_id=employee_id, skill_name__iexact=draft.skill_name
+    ).exclude(status__in=["REJECTED", "ABANDONED"]).first()
+    if existing:
+        return {"error": f"A roadmap for '{draft.skill_name}' already exists (status: {existing.status}). Cannot submit duplicate.", "already_exists": True}
+
+    roadmap = SkillRoadmap.objects.create(
+        employee_id=employee_id,
+        skill_name=draft.skill_name,
+        description=draft.draft_description,
+        status="PENDING_APPROVAL",
+    )
+    for i, step in enumerate(draft.draft_steps):
+        RoadmapStep.objects.create(
+            roadmap=roadmap,
+            title=step.get("title", ""),
+            description=step.get("description", ""),
+            order=i + 1,
+            phase=step.get("phase", ""),
+            difficulty=step.get("difficulty", "Intermediate"),
+            duration=step.get("duration", 1),
+            resource_url=step.get("resource_url", ""),
+            resource_type=step.get("resource_type", "video"),
+            status="PENDING",
+        )
+
+    draft.status = "SUBMITTED"
+    draft.save(update_fields=["status", "updated_at"])
+
+    # Notify manager
+    try:
+        from apps.employees.models import Employee
+        from apps.notifications.services import InAppNotificationService
+        emp = Employee.objects.select_related("manager__user", "user").get(id=employee_id)
+        if emp.manager and emp.manager.user:
+            InAppNotificationService().create_notification(
+                recipient_email=emp.manager.user.email,
+                subject=f"Upskilling Approval Required: {emp.user.name}",
+                body=f"{emp.user.name} has submitted a '{draft.skill_name}' upskilling roadmap ({len(draft.draft_steps)} milestones) for your approval.",
+                metadata={"type": "roadmap_approval", "employee_id": employee_id, "roadmap_id": roadmap.id, "action_required": True},
+            )
+        manager_name = emp.manager.user.name if emp.manager else None
+    except Exception:
+        logger.exception("Failed to notify manager after draft confirm")
+        manager_name = None
+
+    res = _get_updated_roadmap_details(roadmap)
+    res["submitted"] = True
+    res["manager_name"] = manager_name
+    res["message"] = (
+        f"✅ Your '{draft.skill_name}' roadmap has been submitted for manager approval"
+        + (f" ({manager_name} has been notified)." if manager_name else ".")
+    )
+    return res
+
+
 @tool("approve_roadmap")
 def approve_roadmap(employee_id: int, requester_id: int, requester_role: str, input_data: dict | None = None) -> dict:
     """Manager approves an employee's upskilling roadmap, allowing them to begin working on it."""

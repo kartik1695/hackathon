@@ -265,20 +265,37 @@ function ChartBlock({ spec }: { spec: ChartSpec }) {
  * Split message content into parts: text segments and chart specs.
  * Chart blocks: ```chart\n{...}\n```
  */
-function parseMessageParts(content: string): Array<{ kind: "text"; text: string } | { kind: "chart"; spec: ChartSpec }> {
-  const parts: Array<{ kind: "text"; text: string } | { kind: "chart"; spec: ChartSpec }> = [];
-  const regex = /```chart\s*([\s\S]*?)```/g;
+type MsgPart =
+  | { kind: "text"; text: string }
+  | { kind: "chart"; spec: ChartSpec }
+  | { kind: "cta"; buttons: string[] };
+
+function parseMessageParts(content: string): MsgPart[] {
+  const parts: MsgPart[] = [];
+  // Match both ```chart and :::cta blocks
+  const regex = /```chart\s*([\s\S]*?)```|:::cta\s*([\s\S]*?):::/g;
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(content)) !== null) {
     if (match.index > last) {
       parts.push({ kind: "text", text: content.slice(last, match.index) });
     }
-    try {
-      const spec = JSON.parse(match[1].trim()) as ChartSpec;
-      parts.push({ kind: "chart", spec });
-    } catch {
-      parts.push({ kind: "text", text: match[0] });
+    if (match[1] !== undefined) {
+      // chart block
+      try {
+        const spec = JSON.parse(match[1].trim()) as ChartSpec;
+        parts.push({ kind: "chart", spec });
+      } catch {
+        parts.push({ kind: "text", text: match[0] });
+      }
+    } else if (match[2] !== undefined) {
+      // cta block
+      try {
+        const buttons = JSON.parse(match[2].trim()) as string[];
+        if (Array.isArray(buttons)) parts.push({ kind: "cta", buttons });
+      } catch {
+        parts.push({ kind: "text", text: match[0] });
+      }
     }
     last = match.index + match[0].length;
   }
@@ -335,13 +352,40 @@ const MD_COMPONENTS = {
   ),
 };
 
-function AssistantContent({ content }: { content: string }) {
+function CtaButtons({ buttons, onSelect }: { buttons: string[]; onSelect: (b: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2 mt-3">
+      {buttons.map((b, i) => {
+        const isSubmit = b.includes("Submit") || b.includes("✅");
+        const isDanger = b.includes("Start Over") || b.includes("❌");
+        return (
+          <button
+            key={i}
+            onClick={() => onSelect(b)}
+            className="text-xs font-semibold px-4 py-2 rounded-xl border transition-all hover:scale-105 active:scale-95"
+            style={{
+              background: isSubmit ? "var(--primary)" : isDanger ? "transparent" : "var(--primary-pale)",
+              color: isSubmit ? "white" : isDanger ? "#FF6B6B" : "var(--primary)",
+              borderColor: isDanger ? "#FF6B6B" : isSubmit ? "var(--primary)" : "transparent",
+            }}
+          >
+            {b}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AssistantContent({ content, onCta }: { content: string; onCta?: (text: string) => void }) {
   const parts = parseMessageParts(content);
   return (
     <div className="prose prose-sm max-w-none overflow-x-auto" style={{ color: "var(--text-dark)" }}>
       {parts.map((part, i) =>
         part.kind === "chart" ? (
           <ChartBlock key={i} spec={part.spec} />
+        ) : part.kind === "cta" ? (
+          <CtaButtons key={i} buttons={part.buttons} onSelect={b => onCta?.(b)} />
         ) : (
           <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={MD_COMPONENTS as never}>
             {part.text}
@@ -481,6 +525,171 @@ const ROADMAP_STATUS: Record<string, { bg: string; color: string }> = {
   COMPLETED:        { bg: "#D1FAE520", color: "#065F46" },
   REJECTED:         { bg: "#FEE2E220", color: "#991B1B" },
 };
+
+const PHASE_COLORS: Record<string, { bg: string; color: string; icon: string }> = {
+  "Foundation":             { bg: "#FEF3C7", color: "#92400E", icon: "🧱" },
+  "Tactical Implementation":{ bg: "#DBEAFE", color: "#1E40AF", icon: "⚙️" },
+  "Strategic Mastery":      { bg: "#D1FAE5", color: "#065F46", icon: "🎯" },
+};
+
+function DraftRoadmapChatCard({ draft, onAction }: { draft: any; onAction: (text: string) => void }) {
+  const [modMode, setModMode] = useState(false);
+  const [modText, setModText] = useState("");
+
+  const steps: any[] = draft.steps ?? [];
+  const phases = Array.from(new Set(steps.map((s: any) => s.phase).filter(Boolean)));
+  const draftId = draft.draft_id;
+  const skillName = draft.skill_name;
+
+  function handleSubmit() {
+    onAction(`Submit my ${skillName} roadmap to manager`);
+  }
+  function handleStartOver() {
+    onAction(`Start over my ${skillName} roadmap`);
+  }
+  function handleApplyMod() {
+    if (!modText.trim()) return;
+    onAction(`Modify my ${skillName} roadmap: ${modText.trim()}`);
+    setModText("");
+    setModMode(false);
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)" }}>
+      {/* Header */}
+      <div className="px-4 py-3" style={{ background: "linear-gradient(135deg, var(--primary-pale) 0%, #fff 100%)", borderBottom: "1px solid var(--card-border)" }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📋</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: "var(--text-dark)" }}>{skillName} Roadmap</p>
+              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Draft · {steps.length} milestones · Review before submitting</p>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D40" }}>
+            DRAFT
+          </span>
+        </div>
+        {draft.description && (
+          <p className="mt-2 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>{draft.description}</p>
+        )}
+      </div>
+
+      {/* Steps grouped by phase */}
+      <div className="px-4 py-2 space-y-3">
+        {phases.length > 0
+          ? phases.map((phase) => {
+              const phaseSteps = steps.filter((s: any) => s.phase === phase);
+              const pc = PHASE_COLORS[phase] ?? { bg: "#F3F4F6", color: "#6B7280", icon: "📌" };
+              return (
+                <div key={phase}>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-xs">{pc.icon}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: pc.color }}>{phase}</span>
+                    <div className="flex-1 h-px" style={{ background: pc.color + "30" }} />
+                  </div>
+                  <div className="space-y-1.5">
+                    {phaseSteps.map((step: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: pc.bg + "60", border: `1px solid ${pc.color}20` }}>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                          style={{ background: pc.color + "20", color: pc.color }}>
+                          {steps.indexOf(step) + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate" style={{ color: "var(--text-dark)" }}>{step.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {step.difficulty && (
+                              <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>{step.difficulty}</span>
+                            )}
+                            {step.duration && (
+                              <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>· {step.duration}h</span>
+                            )}
+                          </div>
+                        </div>
+                        {step.resource_url && (
+                          <a href={step.resource_url} target="_blank" rel="noopener noreferrer"
+                            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-110"
+                            style={{ background: "var(--primary)", color: "white" }}
+                            title="Watch resource">
+                            <span className="text-[10px]">▶</span>
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          : steps.map((step: any, idx: number) => (
+              <div key={idx} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                  style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+                  {idx + 1}
+                </div>
+                <p className="flex-1 text-xs font-medium truncate" style={{ color: "var(--text-dark)" }}>{step.title}</p>
+                {step.resource_url && (
+                  <a href={step.resource_url} target="_blank" rel="noopener noreferrer"
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: "var(--primary)", color: "white" }}>
+                    <span className="text-[10px]">▶</span>
+                  </a>
+                )}
+              </div>
+            ))
+        }
+      </div>
+
+      {/* Modification input */}
+      {modMode && (
+        <div className="px-4 pb-3">
+          <div className="p-3 rounded-xl" style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
+            <p className="text-[10px] font-semibold mb-2" style={{ color: "var(--text-muted)" }}>What would you like to change?</p>
+            <textarea
+              autoFocus
+              rows={2}
+              value={modText}
+              onChange={e => setModText(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleApplyMod(); } }}
+              placeholder="e.g. Remove strategic mastery phase, add more beginner content, focus on data analysis..."
+              className="w-full text-xs px-3 py-2 rounded-xl resize-none focus:outline-none"
+              style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }}
+            />
+            <div className="flex gap-2 mt-2">
+              <button onClick={handleApplyMod} disabled={!modText.trim()}
+                className="text-xs font-semibold px-4 py-1.5 rounded-xl text-white disabled:opacity-40 transition-all"
+                style={{ background: "var(--primary-dark)" }}>
+                Apply Changes
+              </button>
+              <button onClick={() => { setModMode(false); setModText(""); }}
+                className="text-xs px-3 py-1.5 rounded-xl" style={{ background: "var(--primary-pale)", color: "var(--text-muted)" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CTAs */}
+      <div className="px-4 pb-4 pt-1 flex flex-wrap gap-2" style={{ borderTop: "1px solid var(--card-border)" }}>
+        <button onClick={handleSubmit}
+          className="text-xs font-bold px-4 py-2 rounded-xl text-white transition-all flex items-center gap-1.5"
+          style={{ background: "var(--primary-dark)" }}>
+          <span>✓</span> Submit to Manager
+        </button>
+        <button onClick={() => { setModMode(m => !m); setModText(""); }}
+          className="text-xs font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5"
+          style={{ background: "var(--primary-pale)", color: "var(--primary-dark)", border: "1px solid var(--primary-dark)30" }}>
+          <span>✏️</span> I want changes
+        </button>
+        <button onClick={handleStartOver}
+          className="text-xs font-semibold px-4 py-2 rounded-xl bg-red-50 text-red-600 transition-all flex items-center gap-1.5"
+          style={{ border: "1px solid #FCA5A540" }}>
+          <span>✕</span> Start Over
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
   roadmap: any;
@@ -834,10 +1043,12 @@ interface ChatPageProps {
 export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
   const navigate = useNavigate();
 
+  const SESSION_STORAGE_KEY = "hrms_active_session_id";
+
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(() => sessionStorage.getItem(SESSION_STORAGE_KEY));
   const [collectionState, setCollectionState] = useState<CollectionState>({});
 
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -857,6 +1068,15 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Persist session ID across navigation
+  useEffect(() => {
+    if (sessionId) {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+    } else {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  }, [sessionId]);
+
   useEffect(() => {
     async function load() {
       try {
@@ -869,8 +1089,26 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         setSessions(list);
         if (me) setUserProfile(me);
         setUnreadCount(unread.length);
-        // Pre-populate seenNotifIds so WS flush won't double-count these
         unread.forEach((n) => seenNotifIds.current.add(n.id));
+
+        // Restore previous session messages if we have a saved session ID
+        const savedId = sessionStorage.getItem(SESSION_STORAGE_KEY);
+        if (savedId && list.some((s) => s.session_id === savedId)) {
+          try {
+            const backendMessages = await fetchSessionMessages(token, savedId);
+            const restored: Message[] = backendMessages.map((m) => ({
+              id: nextId(),
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }));
+            if (restored.length) {
+              setMessages(restored);
+              setActiveSessionId(savedId);
+            }
+          } catch {
+            // non-critical — just start fresh
+          }
+        }
       } catch {
         // non-critical
       }
@@ -1069,6 +1307,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
   }
 
   function startNewChat() {
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
     setMessages([{ ...WELCOME, id: nextId() }]);
     setSessionId(null);
     setActiveSessionId(null);
@@ -1383,8 +1622,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                     🔔
                   </div>
                   <div
-                    className="max-w-[78%] px-5 py-4 text-sm bg-white cursor-pointer" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)", borderRadius: "6px 20px 20px 20px" }}
-                    style={{ borderRadius: "4px 16px 16px 16px" }}
+                    className="max-w-[78%] px-5 py-4 text-sm bg-white cursor-pointer" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)", borderRadius: "4px 16px 16px 16px" }}
                     onClick={() => msg.notificationId && markNotificationRead(msg.notificationId)}
                   >
                     <div className="prose prose-sm max-w-none text-gray-900">
@@ -1466,7 +1704,7 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                       <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     ) : (
                       <>
-                        <AssistantContent content={msg.content} />
+                        <AssistantContent content={msg.content} onCta={(btn) => submit(btn)} />
                         {msg.tool_results && (() => {
                           const inlineCTAs = buildInlineCTAs(msg.tool_results);
                           const roadmapKeys = [

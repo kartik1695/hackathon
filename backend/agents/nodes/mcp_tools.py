@@ -33,7 +33,8 @@ _TOOLS_BY_INTENT: dict[str, list[str]] = {
     # Other intents
     "burnout_check": ["get_attendance_summary", "get_attendance_anomalies"],
     "review_summary": ["get_employee_goals", "get_review_cycles"],
-    "skill_roadmap": ["generate_skill_roadmap", "get_skill_roadmaps", "get_roadmap_details", "submit_roadmap_step", "approve_roadmap_step", "reject_roadmap_step", "approve_roadmap", "reject_roadmap", "get_pending_roadmap_approvals"],
+    "roadmap_create": ["save_roadmap_draft", "confirm_roadmap_draft"],
+    "skill_roadmap": ["get_skill_roadmaps", "get_roadmap_details", "submit_roadmap_step", "approve_roadmap_step", "reject_roadmap_step", "approve_roadmap", "reject_roadmap", "get_pending_roadmap_approvals", "confirm_roadmap_draft"],
     "nl_query": ["find_employee_by_name", "get_employee_profile"],
     # Employee directory / org queries — planner picks the right tool
     "employee_query": [],  # fully LLM-planned; see _plan_next_tool_call
@@ -812,6 +813,75 @@ def _parse_upskill_intent_input(state: AgentState) -> dict:
         return result
 
 
+def _extract_mentor_context_from_history(state: AgentState, current_query: str = "") -> dict:
+    """Parse Q&A answers from chat history + current query to build mentor_context dict."""
+    history = state.get("chat_history") or []
+
+    _LEVEL_ANSWERS = {"beginner", "some experience", "intermediate", "advanced"}
+    _GOAL_ANSWERS = {"career switch", "level up in current role", "promotion", "personal growth", "certification"}
+    _TIME_ANSWERS = {"1-3h", "3-5h", "5-10h", "10h+"}
+    _TIMELINE_ANSWERS = {"1 month", "3 months", "6 months", "1 year"}
+
+    ctx: dict = {}
+    # Include current query first so it's available even before it lands in history
+    all_user_contents = []
+    if current_query:
+        all_user_contents.append(current_query.strip().lower())
+    for msg in history[-20:]:
+        if msg.get("role") != "user":
+            continue
+        all_user_contents.append((msg.get("content") or "").strip().lower())
+
+    for content in all_user_contents:
+        if content in _LEVEL_ANSWERS:
+            ctx["level"] = content.title()
+        elif content in _GOAL_ANSWERS:
+            ctx["goal"] = content.title()
+        elif content in _TIME_ANSWERS:
+            ctx["time_per_week"] = content
+        elif content in _TIMELINE_ANSWERS:
+            ctx["timeline"] = content
+    return ctx
+
+
+def _extract_skill_from_history(state: AgentState) -> str | None:
+    """Extract skill name from user messages only (not LLM messages) to avoid false matches."""
+    import re as _re
+    # Patterns ordered by specificity — most reliable first
+    skill_patterns = [
+        r'(?:i want to learn|i\'d like to learn|i would like to learn|help me learn|want to learn)\s+([A-Za-z][A-Za-z0-9\s\+\#\.]{2,40}?)(?:\s*$|,|\.|!|\?)',
+        r'(?:create roadmap for|roadmap for|upskill in|studying|learn)\s+([A-Za-z][A-Za-z0-9\s\+\#\.]{2,40}?)(?:\s*$|,|\.|!|\?)',
+    ]
+    false_positives = {
+        "beginner", "intermediate", "advanced", "some experience",
+        "career switch", "promotion", "certification", "personal growth",
+        "level up", "current role", "1 month", "3 months", "6 months", "1 year",
+        "more", "about", "this",
+    }
+    # Check current query first (most reliable)
+    q = str((state.get("input_data") or {}).get("query") or "").strip()
+    for pat in skill_patterns:
+        m = _re.search(pat, q.lower())
+        if m:
+            skill = m.group(1).strip().strip(".,!?'\" ")
+            if skill.lower() not in false_positives and len(skill) > 2:
+                return skill.title()
+
+    # Then scan ONLY user messages in history (skip assistant — too noisy)
+    history = state.get("chat_history") or []
+    for msg in reversed(history[-20:]):
+        if msg.get("role") != "user":
+            continue
+        content = (msg.get("content") or "").strip()
+        for pat in skill_patterns:
+            m = _re.search(pat, content.lower())
+            if m:
+                skill = m.group(1).strip().strip(".,!?'\" ")
+                if skill.lower() not in false_positives and len(skill) > 2:
+                    return skill.title()
+    return None
+
+
 def _resolve_employee_by_name(name: str, *, manager_employee_id: int, requester_id: int, requester_role: str) -> int | None:
     """
     Given a name like 'Guru Laxmi', find the matching Employee pk among the
@@ -874,6 +944,7 @@ def run(state: AgentState) -> AgentState:
         "complete_roadmap_step", "generate_skill_roadmap",
         "submit_roadmap_step", "approve_roadmap_step", "reject_roadmap_step",
         "approve_roadmap", "reject_roadmap",
+        "save_roadmap_draft", "confirm_roadmap_draft",
     }
     for _wt in _WRITE_TOOLS:
         tool_results.pop(_wt, None)
@@ -916,6 +987,93 @@ def run(state: AgentState) -> AgentState:
                     "regularize_attendance", "apply_wfh", "show_penalties"):
         tool_names = _TOOLS_BY_INTENT.get(intent, [])
         apply_input = _parse_action_intent_input(state, intent)
+    elif intent == "roadmap_create":
+        apply_input = state.get("input_data") or {}
+        q = str(apply_input.get("query") or "").lower().strip()
+        # Only call tools on explicit user signals — never during Q&A answers
+        _CONFIRM_SIGNALS = (
+            "submit for manager approval", "submit for approval", "submit my roadmap",
+            "confirm roadmap", "yes, submit", "✅ submit",
+        )
+        _SAVE_SIGNALS = (
+            "generate my roadmap", "generate roadmap", "save my roadmap", "save roadmap",
+            "yes, save", "save as ", "create my roadmap", "build my roadmap",
+        )
+        if any(s in q for s in _CONFIRM_SIGNALS):
+            tool_names = ["confirm_roadmap_draft"]
+        elif any(s in q for s in _SAVE_SIGNALS):
+            skill = _extract_skill_from_history(state)
+            mentor_ctx = _extract_mentor_context_from_history(state, current_query=q)
+            apply_input = {**apply_input, "skill_name": skill or apply_input.get("skill_name", ""), "mentor_context": mentor_ctx}
+            tool_names = ["save_roadmap_draft"]
+        else:
+            # ── Modification detection: user stated a change after draft was shown ──
+            # Draft was shown if last assistant message had submit CTA signals
+            _post_draft_signals = (
+                "submit for manager approval", "draft is ready", "i've put together",
+                "here's your personalized", "here is your personalized",
+                "walk you through it", "your roadmap is structured",
+            )
+            _modification_kws = (
+                "don't want", "dont want", "remove", "without", "skip", "exclude",
+                "no strategic", "no foundation", "not interested", "avoid",
+                "add ", "include ", "more focus", "less focus", "change the",
+                "instead", "focus only", "focus on", "drop ", "shorten",
+            )
+            _confirmation_of_change = {"yes", "yeah", "yep", "proceed", "go ahead", "ok", "okay", "sure", "do it"}
+            history = state.get("chat_history") or []
+
+            def _draft_was_shown() -> bool:
+                for msg in reversed(history[-8:]):
+                    if msg.get("role") == "assistant":
+                        txt = (msg.get("content") or "").lower()
+                        return any(s in txt for s in _post_draft_signals)
+                return False
+
+            def _last_user_modification() -> str | None:
+                """Return the most recent user message that looks like a modification request."""
+                for msg in reversed(history[-6:]):
+                    if msg.get("role") == "user":
+                        c = (msg.get("content") or "").lower().strip()
+                        if any(k in c for k in _modification_kws):
+                            return c
+                return None
+
+            _is_confirmation = q.strip(".,!? ") in _confirmation_of_change
+            _has_modification = any(k in q for k in _modification_kws)
+            draft_shown = _draft_was_shown()
+
+            if draft_shown and (_has_modification or (_is_confirmation and _last_user_modification())):
+                # Re-generate draft with modification notes
+                skill = _extract_skill_from_history(state)
+                mentor_ctx = _extract_mentor_context_from_history(state, current_query=q)
+                mod_notes = q if _has_modification else (_last_user_modification() or "")
+                apply_input = {
+                    **apply_input,
+                    "skill_name": skill or apply_input.get("skill_name", ""),
+                    "mentor_context": mentor_ctx,
+                    "modification_notes": mod_notes,
+                }
+                tool_names = ["save_roadmap_draft"]
+                logger.info("roadmap_create: modification detected, re-generating draft with notes=%r", mod_notes)
+            else:
+                # Auto-generate when all 4 Q&A answers collected
+                mentor_ctx = _extract_mentor_context_from_history(state, current_query=q)
+                _ALL_4_COLLECTED = all(k in mentor_ctx for k in ("level", "goal", "time_per_week", "timeline"))
+                _QA_ANSWER_TEXTS = {
+                    "beginner", "some experience", "intermediate", "advanced",
+                    "career switch", "level up in current role", "promotion", "personal growth", "certification",
+                    "1-3h", "3-5h", "5-10h", "10h+",
+                    "1 month", "3 months", "6 months", "1 year",
+                }
+                _is_qa_answer = q in _QA_ANSWER_TEXTS
+                if _ALL_4_COLLECTED and _is_qa_answer:
+                    skill = _extract_skill_from_history(state)
+                    apply_input = {**apply_input, "skill_name": skill or apply_input.get("skill_name", ""), "mentor_context": mentor_ctx}
+                    tool_names = ["save_roadmap_draft"]
+                    logger.info("roadmap_create: all 4 answers, auto-triggering save_roadmap_draft skill=%s ctx=%s", skill, mentor_ctx)
+                else:
+                    tool_names = []
     elif intent == "skill_roadmap":
         tool_names = _TOOLS_BY_INTENT.get(intent, [])
         apply_input = _parse_upskill_intent_input(state)

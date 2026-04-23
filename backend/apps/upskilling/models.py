@@ -85,3 +85,31 @@ class RoadmapStep(models.Model):
 
     def __str__(self):
         return f"Step {self.order}: {self.title}"
+
+
+class DraftRoadmap(models.Model):
+    """Holds an AI-generated roadmap draft before the employee submits for manager approval."""
+    STATUS_GATHERING = "GATHERING"
+    STATUS_READY = "READY"
+    STATUS_SUBMITTED = "SUBMITTED"
+    STATUS_CHOICES = (
+        (STATUS_GATHERING, "Gathering Info"),
+        (STATUS_READY, "Draft Ready"),
+        (STATUS_SUBMITTED, "Submitted"),
+    )
+
+    employee = models.ForeignKey("employees.Employee", on_delete=models.CASCADE, related_name="roadmap_drafts")
+    skill_name = models.CharField(max_length=200)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_GATHERING)
+    mentor_context = models.JSONField(default=dict)   # collected Q&A answers
+    draft_description = models.TextField(blank=True, default="")
+    draft_steps = models.JSONField(default=list)       # generated step list
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        unique_together = ("employee", "skill_name", "status")
+
+    def __str__(self):
+        return f"Draft: {self.skill_name} ({self.employee.user.name}) [{self.status}]"

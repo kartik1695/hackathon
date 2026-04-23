@@ -14,4 +14,6 @@ urlpatterns = [
     path("steps/<int:pk>/reject/", views.StepRejectView.as_view(), name="step-reject"),
     path("org-insights/", views.OrgLearningInsightsView.as_view(), name="org-learning-insights"),
     path("dept-peers/", views.DeptPeersRoadmapsView.as_view(), name="dept-peers"),
+    path("drafts/", views.DraftRoadmapListView.as_view(), name="roadmap-drafts"),
+    path("drafts/<int:pk>/confirm/", views.DraftRoadmapConfirmView.as_view(), name="roadmap-draft-confirm"),
 ]

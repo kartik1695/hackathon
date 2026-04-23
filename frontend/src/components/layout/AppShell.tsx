@@ -10,6 +10,7 @@ import { getAccess, clearTokens, getValidToken } from "../../auth";
 import { fetchMe, fetchUnreadNotifications, refreshToken, WS_BASE, UserProfile, NotificationItem } from "../../api";
 import ChatPage from "../../ChatPage";
 import UpskillPage from "../upskilling/UpskillPage";
+import FeedbackPage from "../feedback/FeedbackPage";
 
 type ThemeId = "aurora_teal" | "arctic_blue" | "solar_gold" | "midnight" | "blossom" | "forest";
 
@@ -139,13 +140,13 @@ export default function AppShell() {
     return () => wsRef.current?.close();
   }, []);
 
-  function applyTheme(next: ThemeId) {
-    const vars = THEME_VARS[next] ?? THEME_VARS.aurora_teal;
+  function applyTheme(next: string) {
+    const vars = THEME_VARS[next as ThemeId] ?? THEME_VARS.aurora_teal;
     Object.entries(vars).forEach(([key, value]) => {
       document.documentElement.style.setProperty(key, value);
     });
     localStorage.setItem("theme", next);
-    setThemeId(next);
+    setThemeId(next as ThemeId);
   }
 
   function connectWS(t: string) {
@@ -243,6 +244,7 @@ export default function AppShell() {
             {page === "attendance" && <AttendancePage token={token} role={profile?.role ?? ""} />}
             {page === "employees" && <EmployeePage token={token} role={profile?.role ?? ""} />}
             {page === "upskilling" && <UpskillPage token={token} role={profile?.role ?? ""} />}
+            {page === "feedback" && <FeedbackPage token={token} role={profile?.role ?? ""} />}
           </>
         )}
       </main>

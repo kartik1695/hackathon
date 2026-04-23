@@ -55,17 +55,57 @@ def route(state: AgentState) -> str:
                     return "leave_application"
                 break  # Only check the most recent assistant message
 
-    # ── Context-aware: short follow-up after roadmap/skill response → skill_roadmap ──
+    # ── Mentor Q&A answers — must route to roadmap_create, never skill_roadmap ──
+    # These are exact quick-reply options the mentor CTA presents
+    _MENTOR_QA_ANSWERS = {
+        "beginner", "some experience", "intermediate", "advanced",
+        "career switch", "level up in current role", "promotion", "personal growth", "certification",
+        "1-3h", "3-5h", "5-10h", "10h+",
+        "1 month", "3 months", "6 months", "1 year",
+        "yes, save my roadmap draft", "yes, save", "yes, save as python",
+        "generate my roadmap", "i want changes", "start over",
+        "✅ submit for manager approval", "submit for manager approval",
+        "🔄 i want changes", "❌ start over",
+    }
+    if q.strip().lower() in _MENTOR_QA_ANSWERS:
+        logger.info("Router: mentor Q&A answer detected; routing to roadmap_create")
+        return "roadmap_create"
+
+    # ── Explicit roadmap CREATION intent — must run BEFORE short-followup context check ──
+    # Broad "learn X" patterns including typos (wan/wanna/would like etc.)
+    _roadmap_create_kws = (
+        "i want to learn", "i'd like to learn", "i would like to learn",
+        "i wan to learn", "i wanna learn", "want to learn",
+        "help me learn", "want to upskill", "start learning", "begin learning",
+        "create roadmap", "build roadmap", "new roadmap", "start roadmap",
+        "create a roadmap", "generate roadmap", "make a roadmap",
+        "teach me", "guide me through", "to learn about", "to learn ",
+    )
+    # "learn X" as standalone trigger — exclude leave/attendance/HR queries
+    _hr_kws = ("leave", "attendance", "salary", "payroll", "holiday", "approval", "approve", "reject")
+    if any(k in q for k in _roadmap_create_kws) and not any(h in q for h in _hr_kws):
+        return "roadmap_create"
+
+    # ── Context-aware: short follow-up after roadmap/skill response ──
     _roadmap_context_signals = (
         "roadmap", "skill", "upskill", "pending approval", "in progress",
         "learning journey", "milestone", "step 1", "step 2", "approve roadmap",
+        "draft", "submit for approval", "confirm roadmap",
     )
-    _short_followup = len(q.split()) <= 5
+    _roadmap_mentor_signals = (
+        "what is your current level", "primary goal", "hours per week",
+        "target timeline", "tailored to you", "personalized roadmap",
+        "your learning journey", "tell me about", "let me understand",
+    )
+    _short_followup = len(q.split()) <= 7
     if _short_followup:
         history = state.get("chat_history") or []
         for msg in reversed(history[-4:]):
             if msg.get("role") == "assistant":
                 assistant_text = (msg.get("content") or "").lower()
+                if any(sig in assistant_text for sig in _roadmap_mentor_signals):
+                    logger.info("Router: short follow-up in mentor context; routing to roadmap_create")
+                    return "roadmap_create"
                 if any(sig in assistant_text for sig in _roadmap_context_signals):
                     logger.info("Router: short follow-up after roadmap context; routing to skill_roadmap")
                     return "skill_roadmap"
@@ -193,9 +233,10 @@ def route(state: AgentState) -> str:
 
     if any(k in q for k in ("burnout", "overworked", "stress", "overtime", "fatigue", "exhausted")):
         return "burnout_check"
-    if any(k in q for k in ("skill", "roadmap", "upskill", "learn ", "step ",
+    if any(k in q for k in ("skill", "roadmap", "upskill", "step ",
                               "approve roadmap", "reject roadmap", "resubmit step",
-                              "pending roadmap", "roadmap approval")):
+                              "pending roadmap", "roadmap approval", "submit draft", "confirm draft",
+                              "confirm roadmap", "submit roadmap")):
         return "skill_roadmap"
     if any(k in q for k in ("review", "performance review", "appraisal", "360", "feedback", "rating", "goal")):
         return "review_summary"
