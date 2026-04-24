@@ -280,32 +280,32 @@ class OrgLearningInsightsView(APIView):
         )
 
         # Department breakdown with completion rate
-        dept_raw = (
-            SkillRoadmap.objects
-            .filter(status__in=active_statuses)
-            .select_related("employee__department")
-            .values("employee__department__name")
-            .annotate(total=Count("id"), done=Count("id", filter=Count("id", filter=None)))
-            .order_by("-total")[:8]
-        )
-        # simpler dept breakdown
         from django.db.models import Q as DQ
-        dept_data = []
-        for dept_name in (
+        raw_dept = (
             SkillRoadmap.objects
-            .filter(status__in=active_statuses)
-            .values_list("employee__department__name", flat=True)
-            .distinct()
-        ):
-            total_d = SkillRoadmap.objects.filter(employee__department__name=dept_name, status__in=active_statuses).count()
-            completed_d = SkillRoadmap.objects.filter(employee__department__name=dept_name, status="COMPLETED").count()
+            .values("employee__department_id", "employee__department__name")
+            .annotate(
+                total=Count("id", filter=DQ(status__in=active_statuses)),
+                completed=Count("id", filter=DQ(status="COMPLETED")),
+            )
+            .filter(total__gt=0)
+            .order_by("-total")
+        )
+        seen_dept_ids = set()
+        dept_data = []
+        for row in raw_dept:
+            dept_id = row["employee__department_id"]
+            if dept_id in seen_dept_ids:
+                continue
+            seen_dept_ids.add(dept_id)
+            total_d = row["total"]
+            completed_d = row["completed"]
             dept_data.append({
-                "dept": dept_name or "Unknown",
+                "dept": row["employee__department__name"] or "Unknown",
                 "count": total_d,
                 "completed": completed_d,
                 "completion_rate": round(completed_d / total_d * 100) if total_d else 0,
             })
-        dept_data.sort(key=lambda x: -x["count"])
 
         # Status distribution
         status_dist = list(
@@ -500,3 +500,93 @@ class CopyRoadmapView(APIView):
 
         new_roadmap.refresh_from_db()
         return Response(SkillRoadmapSerializer(new_roadmap).data, status=201)
+
+
+class DraftRoadmapListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsEmployee]
+
+    def get(self, request):
+        emp = _get_employee(request.user)
+        if not emp:
+            return Response({"error": "Employee profile not found"}, status=404)
+        from .models import DraftRoadmap
+        drafts = DraftRoadmap.objects.filter(employee=emp, status="READY")
+        data = [{
+            "id": d.id,
+            "skill_name": d.skill_name,
+            "status": d.status,
+            "mentor_context": d.mentor_context,
+            "draft_description": d.draft_description,
+            "draft_steps": d.draft_steps,
+            "updated_at": d.updated_at.isoformat(),
+        } for d in drafts]
+        return Response({"drafts": data})
+
+    def delete(self, request):
+        draft_id = request.query_params.get("id")
+        emp = _get_employee(request.user)
+        if not emp:
+            return Response({"error": "Not found"}, status=404)
+        from .models import DraftRoadmap
+        DraftRoadmap.objects.filter(id=draft_id, employee=emp).delete()
+        return Response({"status": "deleted"})
+
+
+class DraftRoadmapConfirmView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsEmployee]
+
+    def post(self, request, pk):
+        emp = _get_employee(request.user)
+        if not emp:
+            return Response({"error": "Employee profile not found"}, status=404)
+        from .models import DraftRoadmap
+        try:
+            draft = DraftRoadmap.objects.get(pk=pk, employee=emp, status="READY")
+        except DraftRoadmap.DoesNotExist:
+            return Response({"error": "Draft not found or already submitted"}, status=404)
+
+        # Check no active roadmap already exists
+        existing = SkillRoadmap.objects.filter(
+            employee=emp, skill_name__iexact=draft.skill_name
+        ).exclude(status__in=["REJECTED", "ABANDONED"]).first()
+        if existing:
+            return Response({"error": f"A roadmap for '{draft.skill_name}' already exists (status: {existing.status})"}, status=400)
+
+        roadmap = SkillRoadmap.objects.create(
+            employee=emp,
+            skill_name=draft.skill_name,
+            description=draft.draft_description,
+            status="PENDING_APPROVAL",
+        )
+        for i, step in enumerate(draft.draft_steps):
+            RoadmapStep.objects.create(
+                roadmap=roadmap,
+                title=step.get("title", ""),
+                description=step.get("description", ""),
+                order=i + 1,
+                phase=step.get("phase", ""),
+                difficulty=step.get("difficulty", "Intermediate"),
+                duration=step.get("duration", 1),
+                resource_url=step.get("resource_url", ""),
+                resource_type=step.get("resource_type", "video"),
+                status="PENDING",
+            )
+
+        draft.status = "SUBMITTED"
+        draft.save(update_fields=["status", "updated_at"])
+
+        try:
+            from apps.notifications.services import InAppNotificationService
+            if emp.manager and emp.manager.user:
+                InAppNotificationService().create_notification(
+                    recipient_email=emp.manager.user.email,
+                    subject=f"Upskilling Approval Required: {emp.user.name}",
+                    body=f"{emp.user.name} has requested approval for a '{draft.skill_name}' upskilling roadmap with {len(draft.draft_steps)} milestones.",
+                    metadata={"type": "roadmap_approval", "employee_id": emp.id, "roadmap_id": roadmap.id, "action_required": True},
+                )
+        except Exception:
+            logger.exception("Failed to notify manager after draft confirm")
+
+        return Response({"status": "submitted", "roadmap_id": roadmap.id, "skill_name": roadmap.skill_name})

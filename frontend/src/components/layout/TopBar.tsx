@@ -41,13 +41,20 @@ function navTargetFromNotif(n: NotificationItem): NavPage | undefined {
 
 // Nav tabs — label drives display; id drives navigation
 const NAV_TABS: { id: NavPage; label: string; activeFor?: NavPage[] }[] = [
-  { id: "dashboard", label: "Dashboard", activeFor: ["dashboard"] },
-  { id: "employees", label: "People", activeFor: ["employees"] },
-  { id: "attendance", label: "Attendance", activeFor: ["attendance"] },
-  { id: "leaves", label: "Leave", activeFor: ["leaves"] },
-  { id: "upskilling", label: "Upskilling", activeFor: ["upskilling"] },
-  { id: "chat", label: "AI Insights", activeFor: ["chat"] },
+  { id: "dashboard",  label: "Dashboard",   activeFor: ["dashboard"] },
+  { id: "employees",  label: "People",      activeFor: ["employees"] },
+  { id: "attendance", label: "Attendance",  activeFor: ["attendance"] },
+  { id: "leaves",     label: "Leave",       activeFor: ["leaves"] },
+  { id: "upskilling", label: "Upskilling",  activeFor: ["upskilling"] },
+  { id: "feedback",   label: "Pulse",       activeFor: ["feedback"] },
+  { id: "chat",       label: "AI Insights", activeFor: ["chat"] },
+  { id: "employees",  label: "Reports" },
 ];
+
+const darkTeal = "var(--primary-dark)";
+const teal     = "var(--primary)";
+const tealPale = "var(--primary-pale)";
+const textMuted = "var(--text-muted)";
 
 export default function TopBar({
   page,

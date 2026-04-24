@@ -18,6 +18,7 @@ app.conf.imports = (
     "tasks.chat_tasks",
     "tasks.rag_policy_tasks",
     "tasks.attendance_tasks",
+    "tasks.feedback_tasks",
 )
 app.autodiscover_tasks()
 
@@ -30,6 +31,7 @@ app.conf.task_routes = {
     "tasks.chat_tasks.*":          {"queue": "ai_heavy"},   # entity extraction + session summarisation
     "tasks.rag_policy_tasks.*":    {"queue": "ai_heavy"},   # RAG ingestion
     "tasks.attendance_tasks.*":    {"queue": "leave"},      # attendance shares leave queue
+    "tasks.feedback_tasks.*":      {"queue": "ai_heavy"},
 }
 
 app.conf.beat_schedule = {

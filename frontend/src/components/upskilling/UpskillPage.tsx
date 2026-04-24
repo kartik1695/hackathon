@@ -1,4 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from "recharts";
 
 const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
 
@@ -399,6 +403,204 @@ function RoadmapDetail({
   );
 }
 
+// ── Draft Roadmap Section ───────────────────────────────────────────────────
+
+interface DraftRoadmap {
+  id: number;
+  skill_name: string;
+  status: string;
+  mentor_context: Record<string, string>;
+  draft_description: string;
+  draft_steps: { title: string; phase: string; difficulty: string; duration: number; description: string; resource_url: string }[];
+  updated_at: string;
+}
+
+function DraftsSection({ token, onConfirmed }: { token: string; onConfirmed: () => void }) {
+  const [drafts, setDrafts] = useState<DraftRoadmap[]>([]);
+  const [confirming, setConfirming] = useState<number | null>(null);
+  const [discarding, setDiscarding] = useState<number | null>(null);
+  const [msg, setMsg] = useState<{ id: number; text: string; ok: boolean } | null>(null);
+
+  const load = useCallback(async () => {
+    const res = await apiGet(token, "/upskilling/drafts/");
+    setDrafts(Array.isArray(res.drafts) ? res.drafts : []);
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (drafts.length === 0) return null;
+
+  const PHASE_COLORS: Record<string, string> = {
+    "Foundation": "#74B9FF",
+    "Tactical Implementation": "#A29BFE",
+    "Strategic Mastery": "#1DD1A1",
+  };
+
+  async function confirmDraft(id: number) {
+    setConfirming(id);
+    setMsg(null);
+    const res = await apiPost(token, `/upskilling/drafts/${id}/confirm/`);
+    setConfirming(null);
+    if (res.status === "submitted") {
+      setMsg({ id, text: `✅ "${res.skill_name}" submitted for manager approval!`, ok: true });
+      setTimeout(() => { load(); onConfirmed(); }, 1500);
+    } else {
+      setMsg({ id, text: res.error || "Failed to submit", ok: false });
+    }
+  }
+
+  async function discardDraft(id: number) {
+    setDiscarding(id);
+    await fetch(`${import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api"}/upskilling/drafts/?id=${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setDiscarding(null);
+    load();
+  }
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-sm font-bold" style={{ color: "var(--text-dark)" }}>📋 Draft Roadmaps</span>
+        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "#FECA57", color: "#7d5a00" }}>
+          {drafts.length} awaiting review
+        </span>
+      </div>
+
+      <div className="space-y-6">
+        {drafts.map(d => {
+          const ctx = d.mentor_context;
+          return (
+            <div key={d.id} className="rounded-2xl overflow-hidden"
+              style={{ background: "var(--card-bg)", border: "2px dashed #FECA57" }}>
+
+              {/* ── Draft banner ── */}
+              <div className="flex items-center justify-between px-5 py-3"
+                style={{ background: "rgba(254,202,87,0.12)", borderBottom: "1px dashed #FECA57" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold tracking-widest px-2 py-0.5 rounded"
+                    style={{ background: "#FECA57", color: "#7d5a00" }}>DRAFT</span>
+                  <span className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--text-dark)" }}>
+                    {d.skill_name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* mentor context pills */}
+                  <div className="hidden sm:flex gap-1.5">
+                    {ctx.level && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>{ctx.level}</span>}
+                    {ctx.timeline && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(29,209,161,0.15)", color: "#1DD1A1" }}>{ctx.timeline}</span>}
+                    {ctx.time_per_week && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(116,185,255,0.15)", color: "#74B9FF" }}>{ctx.time_per_week}/wk</span>}
+                  </div>
+                  {/* fake progress */}
+                  <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                    0/{d.draft_steps.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* fake progress bar */}
+              <div className="h-1 w-full" style={{ background: "var(--card-border)" }}>
+                <div className="h-full w-0 rounded-full" style={{ background: "var(--primary)" }} />
+              </div>
+
+              {/* description */}
+              {d.draft_description && (
+                <p className="text-xs px-5 pt-4 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                  {d.draft_description}
+                </p>
+              )}
+
+              {/* ── Steps — same layout as RoadmapDetail ── */}
+              <div className="px-5 py-4 space-y-3">
+                {d.draft_steps.map((s, idx) => {
+                  const phaseColor = PHASE_COLORS[s.phase] ?? "var(--primary)";
+                  return (
+                    <div key={idx} className="flex items-center gap-4 rounded-2xl px-4 py-3"
+                      style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
+                      {/* number */}
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+                        {idx + 1}
+                      </div>
+
+                      {/* title + phase badge */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold" style={{ color: "var(--text-dark)" }}>{s.title}</span>
+                          {s.phase && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                              style={{ background: phaseColor + "22", color: phaseColor }}>
+                              {s.phase}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {s.difficulty && <span>⚡ {s.difficulty}</span>}
+                          {s.duration > 0 && <span>⏱ {s.duration}h</span>}
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                            style={{ background: "rgba(254,202,87,0.2)", color: "#b8860b" }}>Pending</span>
+                        </div>
+                      </div>
+
+                      {/* ► play button → YouTube */}
+                      {s.resource_url ? (
+                        <a href={s.resource_url} target="_blank" rel="noopener noreferrer"
+                          title="Watch on YouTube"
+                          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-110"
+                          style={{ background: "var(--primary)", color: "white" }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </a>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ background: "var(--card-border)", color: "var(--text-muted)" }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── Actions ── */}
+              {msg?.id === d.id && (
+                <div className="px-5 pb-2 text-xs font-semibold" style={{ color: msg.ok ? "#1DD1A1" : "#FF6B6B" }}>
+                  {msg.text}
+                </div>
+              )}
+              <div className="flex gap-3 px-5 pb-5 pt-1">
+                <button
+                  onClick={() => confirmDraft(d.id)}
+                  disabled={confirming === d.id}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
+                  style={{
+                    background: confirming === d.id ? "var(--primary-pale)" : "var(--primary)",
+                    color: confirming === d.id ? "var(--primary)" : "white"
+                  }}
+                >
+                  {confirming === d.id ? "Submitting..." : "✅ Submit for Manager Approval"}
+                </button>
+                <button
+                  onClick={() => discardDraft(d.id)}
+                  disabled={discarding === d.id}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold border"
+                  style={{ borderColor: "#FF6B6B", color: "#FF6B6B", background: "transparent" }}
+                >
+                  {discarding === d.id ? "..." : "Discard"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Employee: roadmap list ───────────────────────────────────────────────────
 
 function EmployeeView({ token }: { token: string }) {
@@ -462,6 +664,7 @@ function EmployeeView({ token }: { token: string }) {
 
   return (
     <div>
+      <DraftsSection token={token} onConfirmed={loadRoadmaps} />
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2
@@ -492,22 +695,19 @@ function EmployeeView({ token }: { token: string }) {
       </div>
 
       {showCreate && (
-        <div
-          className="mb-5 p-5 rounded-2xl"
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--cardBorder)",
-          }}
-        >
-          <h3
-            className="text-sm font-bold mb-3"
-            style={{ color: "var(--ink)" }}
-          >
-            Create AI Roadmap
-          </h3>
-          <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-            Enter a skill you want to learn — our AI will generate a structured
-            3-phase roadmap with curated resources.
+        <div className="mb-5 p-5 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+          <div className="flex items-start gap-3 mb-4 p-4 rounded-xl" style={{ background: "var(--primary-pale)" }}>
+            <span className="text-xl">🎓</span>
+            <div>
+              <div className="text-sm font-bold" style={{ color: "var(--primary)" }}>Use AI Mentor in Chat (Recommended)</div>
+              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                Go to <strong>AI Insights</strong> tab and say <em>"I want to learn [skill]"</em> — your AI mentor will guide you with questions and build a personalized roadmap before you submit.
+              </div>
+            </div>
+          </div>
+          <h3 className="text-sm font-bold mb-3" style={{ color: "var(--text-dark)" }}>Or Quick-Create</h3>
+          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+            Enter a skill to instantly generate a standard 3-phase roadmap (no mentor Q&A).
           </p>
           <div className="flex gap-3">
             <input

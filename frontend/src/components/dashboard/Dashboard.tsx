@@ -49,10 +49,52 @@ interface MyLeave {
 }
 interface MyRequest {
   id: number;
-  type: "leave" | "regularization" | "wfh";
+  type: "leave" | "regularization" | "wfh" | "comp_off" | "roadmap";
   label: string;
   sub: string;
   status: string;
+}
+interface PendingRegularization {
+  id: number;
+  employee_name: string;
+  date: string;
+  status: string;
+}
+interface PendingWFH {
+  id: number;
+  employee_name: string;
+  dates?: string[];
+  dates_count?: number;
+  status: string;
+}
+interface PendingCompOff {
+  id: number;
+  employee_name: string;
+  worked_on: string;
+  days_claimed: number;
+  status: string;
+}
+interface PendingRoadmap {
+  id: number;
+  employee_name: string;
+  employee_id: number;
+  skill_name: string;
+  status: string;
+  step_count: number;
+}
+
+type TeamApprovalType =
+  | "leave"
+  | "regularization"
+  | "wfh"
+  | "comp_off"
+  | "roadmap";
+interface TeamApprovalItem {
+  id: number;
+  type: TeamApprovalType;
+  employee_name: string;
+  title: string;
+  sub: string;
 }
 
 const QUOTES = [
@@ -1166,22 +1208,37 @@ const REQ_ICON: Record<string, string> = {
   leave: "🏖",
   regularization: "📋",
   wfh: "🏠",
+  comp_off: "🕒",
+  roadmap: "🚀",
+};
+const TEAM_ICON: Record<TeamApprovalType, string> = {
+  leave: "🏖",
+  regularization: "📋",
+  wfh: "🏠",
+  comp_off: "🕒",
+  roadmap: "🚀",
 };
 
 function PendingApprovalsCard({
   loading,
-  pendingLeaves,
+  teamApprovals,
   myLeaves,
+  myRequests,
   isManager,
+  renotifyLoading,
   onApprove,
   onReject,
+  onRenotify,
 }: {
   loading: boolean;
-  pendingLeaves: PendingLeave[];
+  teamApprovals: TeamApprovalItem[];
   myLeaves: MyLeave[];
+  myRequests: MyRequest[];
   isManager: boolean;
-  onApprove: (id: number) => void;
-  onReject: (id: number) => void;
+  renotifyLoading: number | null;
+  onApprove: (item: TeamApprovalItem) => void;
+  onReject: (item: TeamApprovalItem) => void;
+  onRenotify: (id: number, type: string) => void;
 }) {
   return (
     <div
@@ -1205,12 +1262,12 @@ function PendingApprovalsCard({
             >
               Team Approvals
             </span>
-            {pendingLeaves.length > 0 && (
+            {teamApprovals.length > 0 && (
               <span
                 className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                 style={{ background: "#FEF3C7", color: "#92400E" }}
               >
-                {pendingLeaves.length} pending
+                {teamApprovals.length} pending
               </span>
             )}
           </div>
@@ -1226,7 +1283,7 @@ function PendingApprovalsCard({
                   style={{ background: C.tealPale }}
                 />
               ))
-            ) : pendingLeaves.length === 0 ? (
+            ) : teamApprovals.length === 0 ? (
               <div
                 className="text-xs text-center py-5"
                 style={{ color: C.textMuted }}
@@ -1234,8 +1291,8 @@ function PendingApprovalsCard({
                 No team approvals pending
               </div>
             ) : (
-              pendingLeaves.map((leave, idx) => {
-                const init = (leave.employee_name || "?")
+              teamApprovals.map((item, idx) => {
+                const init = (item.employee_name || "?")
                   .split(" ")
                   .map((w) => w[0])
                   .slice(0, 2)
@@ -1243,9 +1300,9 @@ function PendingApprovalsCard({
                   .toUpperCase();
                 return (
                   <div
-                    key={leave.id}
+                    key={`${item.type}-${item.id}`}
                     className="flex items-center gap-2.5 p-2 rounded-xl"
-                    style={{ background: C.tealPale }}
+                    style={{ background: "var(--primary-pale)" }}
                   >
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
@@ -1253,34 +1310,39 @@ function PendingApprovalsCard({
                     >
                       {init}
                     </div>
+                    <div className="text-base flex-shrink-0">
+                      {TEAM_ICON[item.type]}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div
                         className="text-xs font-semibold truncate"
                         style={{ color: C.textDark }}
                       >
-                        {leave.employee_name}
+                        {item.employee_name}
+                      </div>
+                      <div
+                        className="text-[10px] font-semibold truncate"
+                        style={{ color: C.textDark }}
+                      >
+                        {item.title}
                       </div>
                       <div
                         className="text-[10px]"
                         style={{ color: C.textMuted }}
                       >
-                        {TYPE_SHORT[leave.leave_type] ?? leave.leave_type} ·{" "}
-                        {leave.from_date}
-                        {leave.to_date && leave.to_date !== leave.from_date
-                          ? `–${leave.to_date}`
-                          : ""}
+                        {item.sub}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
-                        onClick={() => onApprove(leave.id)}
+                        onClick={() => onApprove(item)}
                         className="px-2 py-1 rounded-full text-[10px] font-semibold hover:opacity-80"
                         style={{ background: C.teal, color: "white" }}
                       >
                         ✓
                       </button>
                       <button
-                        onClick={() => onReject(leave.id)}
+                        onClick={() => onReject(item)}
                         className="px-2 py-1 rounded-full text-[10px] font-semibold hover:opacity-80"
                         style={{ background: "#F87171", color: "white" }}
                       >
@@ -1294,6 +1356,88 @@ function PendingApprovalsCard({
           </div>
         </div>
       )}
+
+      {/* Divider — only when manager */}
+      {isManager && (
+        <div style={{ borderTop: "1px solid var(--card-border)" }} />
+      )}
+
+      {/* Section 2 — My pending requests (all roles) */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold" style={{ color: C.textDark }}>
+            My Requests
+          </span>
+          {myRequests.length > 0 && (
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: "#FEF3C7", color: "#92400E" }}
+            >
+              {myRequests.length} pending
+            </span>
+          )}
+        </div>
+        <div
+          className="space-y-2 overflow-y-auto"
+          style={{ maxHeight: "240px", scrollbarWidth: "none" }}
+        >
+          {loading ? (
+            [1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-10 rounded-xl animate-pulse"
+                style={{ background: C.tealPale }}
+              />
+            ))
+          ) : myRequests.length === 0 ? (
+            <div
+              className="text-xs text-center py-6"
+              style={{ color: C.textMuted }}
+            >
+              No pending requests
+            </div>
+          ) : (
+            myRequests.map((r) => (
+              <div
+                key={`${r.type}-${r.id}`}
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
+                style={{
+                  border: "1px solid var(--card-border)",
+                  background: "var(--primary-pale)",
+                }}
+              >
+                <span className="text-base flex-shrink-0">
+                  {REQ_ICON[r.type]}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="text-xs font-semibold truncate"
+                    style={{ color: C.textDark }}
+                  >
+                    {r.label}
+                  </div>
+                  <div className="text-[10px]" style={{ color: C.textMuted }}>
+                    {r.sub}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onRenotify(r.id, r.type)}
+                  disabled={renotifyLoading === r.id}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 hover:opacity-80 disabled:opacity-50 transition-opacity"
+                  style={{
+                    border: `1px solid ${C.teal}`,
+                    color: C.teal,
+                    background: "transparent",
+                  }}
+                  title="Remind manager"
+                >
+                  {renotifyLoading === r.id ? "…" : "🔔 Remind"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1510,7 +1654,7 @@ export default function Dashboard({
   onNav,
 }: DashboardProps) {
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
-  const [pendingLeaves, setPendingLeaves] = useState<PendingLeave[]>([]);
+  const [teamApprovals, setTeamApprovals] = useState<TeamApprovalItem[]>([]);
   const [myLeaves, setMyLeaves] = useState<MyLeave[]>([]);
   const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
   const [teamStatus, setTeamStatus] = useState<TeamStatus | null>(null);
@@ -1534,27 +1678,104 @@ export default function Dashboard({
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [bal, pending, mine, team, week, org, regs, wfhs] =
-        await Promise.all([
-          apiFetch(token, "/leaves/balance/"),
-          isManager
-            ? apiFetch(token, "/leaves/pending/")
-            : Promise.resolve(null),
-          apiFetch(token, "/leaves/?limit=50"),
-          apiFetch(token, "/employees/team-status/"),
-          apiFetch(token, "/attendance/week/"),
-          apiFetch(token, "/attendance/org-insights/"),
-          apiFetch(
-            token,
-            "/attendance/regularization/?status=PENDING&limit=20",
-          ),
-          apiFetch(token, "/attendance/wfh/?status=PENDING&limit=20"),
-        ]);
+      const [
+        bal,
+        pendingLeavesRes,
+        mine,
+        team,
+        week,
+        org,
+        regsRes,
+        wfhsRes,
+        compOffRes,
+        roadmapsRes,
+        myRegsRes,
+        myWfhsRes,
+        myCompOffRes,
+        myRoadmapsRes,
+      ] = await Promise.all([
+        apiFetch(token, "/leaves/balance/"),
+        isManager ? apiFetch(token, "/leaves/pending/") : Promise.resolve(null),
+        apiFetch(token, "/leaves/?limit=50"),
+        apiFetch(token, "/employees/team-status/"),
+        apiFetch(token, "/attendance/week/"),
+        apiFetch(token, "/attendance/org-insights/"),
+        apiFetch(token, "/attendance/regularization/?status=PENDING&limit=50"),
+        apiFetch(token, "/attendance/wfh/?status=PENDING&limit=50"),
+        isManager
+          ? apiFetch(token, "/leaves/comp-off/pending/")
+          : Promise.resolve(null),
+        isManager
+          ? apiFetch(token, "/upskilling/roadmaps/pending/")
+          : Promise.resolve(null),
+        apiFetch(
+          token,
+          "/attendance/regularization/?status=PENDING&scope=me&limit=50",
+        ),
+        apiFetch(token, "/attendance/wfh/?status=PENDING&scope=me&limit=50"),
+        apiFetch(token, "/leaves/comp-off/"),
+        apiFetch(token, "/upskilling/roadmaps/"),
+      ]);
       if (bal) setBalance(bal);
-      if (pending)
-        setPendingLeaves(
-          pending?.results ?? (Array.isArray(pending) ? pending : []),
-        );
+      if (isManager) {
+        const pendingLeaves: PendingLeave[] = (pendingLeavesRes?.results ??
+          (Array.isArray(pendingLeavesRes)
+            ? pendingLeavesRes
+            : [])) as PendingLeave[];
+        const pendingRegs: PendingRegularization[] = (regsRes?.results ??
+          (Array.isArray(regsRes) ? regsRes : [])) as PendingRegularization[];
+        const pendingWfhs: PendingWFH[] = (wfhsRes?.results ??
+          (Array.isArray(wfhsRes) ? wfhsRes : [])) as PendingWFH[];
+        const pendingCompOffs: PendingCompOff[] = (compOffRes?.results ??
+          (Array.isArray(compOffRes) ? compOffRes : [])) as PendingCompOff[];
+        const pendingRoadmaps: PendingRoadmap[] = (
+          Array.isArray(roadmapsRes) ? roadmapsRes : []
+        ) as PendingRoadmap[];
+
+        const approvals: TeamApprovalItem[] = [
+          ...pendingLeaves.map((l) => ({
+            id: l.id,
+            type: "leave" as const,
+            employee_name: l.employee_name,
+            title: `${TYPE_SHORT[l.leave_type] ?? l.leave_type} Leave`,
+            sub: `${l.from_date}${l.to_date && l.to_date !== l.from_date ? `–${l.to_date}` : ""} · ${l.days_count}d`,
+          })),
+          ...pendingRegs.map((r) => ({
+            id: r.id,
+            type: "regularization" as const,
+            employee_name: r.employee_name,
+            title: "Regularization",
+            sub: r.date,
+          })),
+          ...pendingWfhs.map((w) => ({
+            id: w.id,
+            type: "wfh" as const,
+            employee_name: w.employee_name,
+            title: "WFH Request",
+            sub: Array.isArray(w.dates)
+              ? w.dates.slice(0, 2).join(", ") +
+                (w.dates.length > 2 ? ` +${w.dates.length - 2}` : "")
+              : "",
+          })),
+          ...pendingCompOffs.map((c) => ({
+            id: c.id,
+            type: "comp_off" as const,
+            employee_name: c.employee_name,
+            title: "Comp Off",
+            sub: `${c.worked_on} · ${c.days_claimed}d`,
+          })),
+          ...pendingRoadmaps.map((rm) => ({
+            id: rm.id,
+            type: "roadmap" as const,
+            employee_name: rm.employee_name,
+            title: `Upskilling: ${rm.skill_name}`,
+            sub: `${rm.step_count} steps · Pending approval`,
+          })),
+        ];
+        setTeamApprovals(approvals);
+      } else {
+        setTeamApprovals([]);
+      }
       if (mine) {
         const allLeaves: MyLeave[] =
           mine?.results ?? (Array.isArray(mine) ? mine : []);
@@ -1582,13 +1803,52 @@ export default function Dashboard({
             status: "PENDING",
           }));
 
-        const pendingRegReqs: MyRequest[] = (
-          (regs?.results ?? (Array.isArray(regs) ? regs : [])) as {
+        const myRegs: { id: number; date: string }[] = (myRegsRes?.results ??
+          (Array.isArray(myRegsRes) ? myRegsRes : [])) as {
+          id: number;
+          date: string;
+        }[];
+        const myWfhs: {
+          id: number;
+          dates?: string[];
+          from_date?: string;
+          to_date?: string;
+        }[] = (myWfhsRes?.results ??
+          (Array.isArray(myWfhsRes) ? myWfhsRes : [])) as {
+          id: number;
+          dates?: string[];
+          from_date?: string;
+          to_date?: string;
+        }[];
+        const myCompOffs: {
+          id: number;
+          worked_on: string;
+          days_claimed: number;
+          status: string;
+        }[] = (
+          (myCompOffRes?.results ??
+            (Array.isArray(myCompOffRes) ? myCompOffRes : [])) as {
             id: number;
-            date: string;
-            requested_check_out: string;
+            worked_on: string;
+            days_claimed: number;
+            status: string;
           }[]
-        ).map((r) => ({
+        ).filter((c) => (c.status ?? "").toUpperCase() === "PENDING");
+        const myRoadmaps: {
+          id: number;
+          skill_name: string;
+          status: string;
+          step_count?: number;
+        }[] = (
+          (Array.isArray(myRoadmapsRes) ? myRoadmapsRes : []) as {
+            id: number;
+            skill_name: string;
+            status: string;
+            step_count?: number;
+          }[]
+        ).filter((r) => (r.status ?? "") === "PENDING_APPROVAL");
+
+        const pendingRegReqs: MyRequest[] = myRegs.map((r) => ({
           id: r.id,
           type: "regularization" as const,
           label: "Regularization",
@@ -1596,14 +1856,7 @@ export default function Dashboard({
           status: "PENDING",
         }));
 
-        const pendingWFHReqs: MyRequest[] = (
-          (wfhs?.results ?? (Array.isArray(wfhs) ? wfhs : [])) as {
-            id: number;
-            dates?: string[];
-            from_date?: string;
-            to_date?: string;
-          }[]
-        ).map((w) => ({
+        const pendingWFHReqs: MyRequest[] = myWfhs.map((w) => ({
           id: w.id,
           type: "wfh" as const,
           label: "WFH Request",
@@ -1614,10 +1867,28 @@ export default function Dashboard({
           status: "PENDING",
         }));
 
+        const pendingCompOffReqs: MyRequest[] = myCompOffs.map((c) => ({
+          id: c.id,
+          type: "comp_off" as const,
+          label: "Comp Off",
+          sub: `${c.worked_on} · ${c.days_claimed}d`,
+          status: "PENDING",
+        }));
+
+        const pendingRoadmapReqs: MyRequest[] = myRoadmaps.map((r) => ({
+          id: r.id,
+          type: "roadmap" as const,
+          label: `Upskilling: ${r.skill_name}`,
+          sub: "Pending manager approval",
+          status: "PENDING",
+        }));
+
         setMyRequests([
           ...pendingLeaveReqs,
           ...pendingRegReqs,
           ...pendingWFHReqs,
+          ...pendingCompOffReqs,
+          ...pendingRoadmapReqs,
         ]);
       }
       if (team) setTeamStatus(team);
@@ -1626,19 +1897,59 @@ export default function Dashboard({
       setLoading(false);
     }
     load();
-  }, [token]);
+  }, [token, isManager]);
 
-  async function handleApprove(id: number) {
-    await apiPost(token, `/leaves/${id}/approve/`);
-    showToast("Leave approved ✓");
-    setPendingLeaves((prev) => prev.filter((l) => l.id !== id));
+  async function handleApprove(item: TeamApprovalItem) {
+    if (item.type === "leave") {
+      await apiPost(token, `/leaves/${item.id}/approve/`);
+      showToast("Leave approved ✓");
+    } else if (item.type === "regularization") {
+      await apiPost(token, `/attendance/regularization/${item.id}/approve/`);
+      showToast("Regularization approved ✓");
+    } else if (item.type === "wfh") {
+      await apiPost(token, `/attendance/wfh/${item.id}/approve/`);
+      showToast("WFH approved ✓");
+    } else if (item.type === "comp_off") {
+      await apiPost(token, `/leaves/comp-off/${item.id}/approve/`);
+      showToast("Comp off approved ✓");
+    } else if (item.type === "roadmap") {
+      await apiPost(token, `/upskilling/roadmaps/${item.id}/approve/`);
+      showToast("Roadmap approved ✓");
+    }
+    setTeamApprovals((prev) =>
+      prev.filter((a) => !(a.type === item.type && a.id === item.id)),
+    );
   }
-  async function handleReject(id: number) {
-    await apiPost(token, `/leaves/${id}/reject/`, {
-      reason: "Declined by manager",
-    });
-    showToast("Leave rejected");
-    setPendingLeaves((prev) => prev.filter((l) => l.id !== id));
+  async function handleReject(item: TeamApprovalItem) {
+    if (item.type === "leave") {
+      await apiPost(token, `/leaves/${item.id}/reject/`, {
+        rejection_reason: "Declined by manager",
+      });
+      showToast("Leave rejected");
+    } else if (item.type === "regularization") {
+      await apiPost(token, `/attendance/regularization/${item.id}/reject/`, {
+        rejection_reason: "Declined by manager",
+      });
+      showToast("Regularization rejected");
+    } else if (item.type === "wfh") {
+      await apiPost(token, `/attendance/wfh/${item.id}/reject/`, {
+        rejection_reason: "Declined by manager",
+      });
+      showToast("WFH rejected");
+    } else if (item.type === "comp_off") {
+      await apiPost(token, `/leaves/comp-off/${item.id}/reject/`, {
+        rejection_reason: "Declined by manager",
+      });
+      showToast("Comp off rejected");
+    } else if (item.type === "roadmap") {
+      await apiPost(token, `/upskilling/roadmaps/${item.id}/reject/`, {
+        feedback: "Please revise the roadmap and resubmit.",
+      });
+      showToast("Roadmap rejected");
+    }
+    setTeamApprovals((prev) =>
+      prev.filter((a) => !(a.type === item.type && a.id === item.id)),
+    );
   }
 
   async function handleRenotify(id: number, type: string) {
@@ -2067,100 +2378,20 @@ export default function Dashboard({
               </button>
             </div>
           )}
-
-          {/* My Requests */}
-          <div
-            style={{
-              borderRadius: 20,
-              padding: "14px 16px",
-              background: C.cardBg,
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              border: `1px solid ${C.tealBorder}`,
-              boxShadow: "var(--cardShadow)",
-            }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span
-                className="text-sm font-semibold"
-                style={{ color: C.textDark }}
-              >
-                My Requests
-              </span>
-              {myRequests.length > 0 && (
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "#FEF3C7", color: "#92400E" }}
-                >
-                  {myRequests.length} pending
-                </span>
-              )}
-            </div>
-            <div
-              className="space-y-2 overflow-y-auto"
-              style={{ maxHeight: 240, scrollbarWidth: "none" }}
-            >
-              {loading ? (
-                [1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-10 rounded-xl animate-pulse"
-                    style={{ background: C.tealPale }}
-                  />
-                ))
-              ) : myRequests.length === 0 ? (
-                <div
-                  className="text-xs text-center py-5"
-                  style={{ color: C.textMuted }}
-                >
-                  No pending requests
-                </div>
-              ) : (
-                myRequests.map((r) => (
-                  <div
-                    key={`${r.type}-${r.id}`}
-                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
-                    style={{
-                      border: `1px solid ${C.tealBorder}`,
-                      background: C.tealPale,
-                    }}
-                  >
-                    <span className="text-base flex-shrink-0">
-                      {REQ_ICON[r.type]}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className="text-xs font-semibold truncate"
-                        style={{ color: C.textDark }}
-                      >
-                        {r.label}
-                      </div>
-                      <div
-                        className="text-[10px]"
-                        style={{ color: C.textMuted }}
-                      >
-                        {r.sub}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRenotify(r.id, r.type)}
-                      disabled={renotifyLoading === r.id}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 hover:opacity-80 disabled:opacity-50 transition-opacity"
-                      style={{
-                        border: `1px solid ${C.teal}`,
-                        color: C.teal,
-                        background: "transparent",
-                      }}
-                      title="Remind manager"
-                    >
-                      {renotifyLoading === r.id ? "…" : "🔔 Remind"}
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
         </div>
+
+        {/* COL 4: Pending Approvals (manager) + My Requests (everyone) */}
+        <PendingApprovalsCard
+          loading={loading}
+          pendingLeaves={pendingLeaves}
+          myLeaves={myLeaves}
+          myRequests={myRequests}
+          isManager={isManager}
+          renotifyLoading={renotifyLoading}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onRenotify={(id, type) => handleRenotify(id, type)}
+        />
       </div>
     </div>
   );

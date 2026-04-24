@@ -17,6 +17,7 @@ import {
 } from "../../api";
 import ChatPage from "../../ChatPage";
 import UpskillPage from "../upskilling/UpskillPage";
+import FeedbackPage from "../feedback/FeedbackPage";
 
 type ThemeId =
   | "aurora_teal"
@@ -332,15 +333,15 @@ export default function AppShell() {
     return () => wsRef.current?.close();
   }, []);
 
-  function applyTheme(next: ThemeId) {
-    const vars = THEME_VARS[next] ?? THEME_VARS.aurora_teal;
+  function applyTheme(next: string) {
+    const vars = THEME_VARS[next as ThemeId] ?? THEME_VARS.aurora_teal;
     Object.entries(vars).forEach(([key, value]) => {
       document.documentElement.style.setProperty(key, value);
     });
     document.body.style.background = vars["--pageBg"] ?? "";
     document.body.style.minHeight = "100vh";
     localStorage.setItem("theme", next);
-    setThemeId(next);
+    setThemeId(next as ThemeId);
   }
 
   function connectWS(t: string) {

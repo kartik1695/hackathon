@@ -114,7 +114,7 @@ def _get_flow(intent: str) -> list[str]:
         return _POLICY_FLOW
     if intent == "employee_query":
         return _EMPLOYEE_FLOW
-    if intent == "skill_roadmap":
+    if intent in ("skill_roadmap", "roadmap_create"):
         return _UPSKILL_FLOW
     if intent in (
         "approve_leave", "reject_leave", "cancel_leave",
