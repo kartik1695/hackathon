@@ -16,6 +16,14 @@ interface LeaveBalance {
   comp_off_remaining: number;
 }
 
+interface LeavePolicy {
+  leave_type: string;
+  annual_allocation: number;
+  accrual_per_month: number;
+  requires_balance: boolean;
+  allow_backdate_days: number;
+}
+
 interface Leave {
   id: number;
   leave_type: string;
@@ -76,6 +84,7 @@ function MyLeavesView({ token }: { token: string }) {
   const [tab, setTab] = useState<"active" | "history">("active");
   const [showForm, setShowForm] = useState(false);
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
+  const [policyMax, setPolicyMax] = useState<Record<string, number>>({});
   const [myLeaves, setMyLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -87,11 +96,21 @@ function MyLeavesView({ token }: { token: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [bal, mine] = await Promise.all([
+    const [bal, mine, types] = await Promise.all([
       apiFetch(token, "/leaves/balance/"),
       apiFetch(token, "/leaves/"),
+      apiFetch(token, "/leaves/types/"),
     ]);
     if (bal) setBalance(bal);
+    if (Array.isArray(types)) {
+      const maxByType: Record<string, number> = {};
+      (types as LeavePolicy[]).forEach((p) => {
+        maxByType[String(p.leave_type || "").toUpperCase()] = Number(
+          p.annual_allocation ?? 0,
+        );
+      });
+      setPolicyMax(maxByType);
+    }
     const list = mine?.results ?? (Array.isArray(mine) ? mine : []);
     setMyLeaves(list);
     setLoading(false);
@@ -111,32 +130,37 @@ function MyLeavesView({ token }: { token: string }) {
     load();
   }
 
+  const maxCL = policyMax.CL || 12;
+  const maxPL = policyMax.PL || 18;
+  const maxSL = policyMax.SL || 10;
+  const maxCO = policyMax.CO || 10;
+
   const BALANCE_TILES = [
     {
       label: "Casual Leave",
       value: balance?.casual_remaining ?? 0,
-      max: 6,
+      max: maxCL,
       color: "#E8D44D",
       dark: false,
     },
     {
       label: "Privilege Leave",
       value: balance?.privilege_remaining ?? 0,
-      max: 18,
+      max: maxPL,
       color: "var(--accent)",
       dark: true,
     },
     {
       label: "Sick Leave",
       value: balance?.sick_remaining ?? 0,
-      max: 6,
+      max: maxSL,
       color: "#F87171",
       dark: false,
     },
     {
       label: "Comp Off",
       value: balance?.comp_off_remaining ?? 0,
-      max: 10,
+      max: maxCO,
       color: "#34D399",
       dark: false,
     },

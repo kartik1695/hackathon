@@ -1,6 +1,6 @@
 import React from "react";
 
-export type NavPage = "dashboard" | "leaves" | "attendance" | "employees" | "chat" | "upskilling" | "feedback";
+export type NavPage = "dashboard" | "leaves" | "attendance" | "employees" | "chat" | "upskilling" | "feedback" | "reports";
 
 interface SidebarProps {
   current: NavPage;
