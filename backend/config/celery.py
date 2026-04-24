@@ -19,6 +19,7 @@ app.conf.imports = (
     "tasks.rag_policy_tasks",
     "tasks.attendance_tasks",
     "tasks.feedback_tasks",
+    "tasks.report_tasks",
 )
 app.autodiscover_tasks()
 
@@ -32,12 +33,17 @@ app.conf.task_routes = {
     "tasks.rag_policy_tasks.*":    {"queue": "ai_heavy"},   # RAG ingestion
     "tasks.attendance_tasks.*":    {"queue": "leave"},      # attendance shares leave queue
     "tasks.feedback_tasks.*":      {"queue": "ai_heavy"},
+    "tasks.report_tasks.*":        {"queue": "analytics"},
 }
 
 app.conf.beat_schedule = {
     "burnout-scan-daily": {
         "task": "tasks.burnout_tasks.burnout_scan_all",
         "schedule": crontab(minute=0, hour=2),
+    },
+    "precompute-employee-reports-daily": {
+        "task": "tasks.report_tasks.precompute_employee_reports",
+        "schedule": crontab(minute=20, hour=2),
     },
     "leave-forecast-daily": {
         "task": "tasks.forecast_tasks.generate_leave_forecast_current_month",
