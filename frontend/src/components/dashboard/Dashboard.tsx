@@ -792,7 +792,10 @@ function TeamInsightsCard({
       .join("")
       .toUpperCase();
     return (
-      <div className="flex items-center gap-2.5 py-1.5">
+      <div
+        className="flex items-center gap-2.5 py-1.5"
+        style={{ borderTop: i > 0 ? `1px solid ${C.tealPale}` : "none" }}
+      >
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
           style={{ background: AV_BG[i % AV_BG.length] }}
@@ -879,7 +882,7 @@ function TeamInsightsCard({
                   />
                 </div>
               </div>
-              <div className="divide-y" style={{ borderColor: C.tealPale }}>
+              <div>
                 {dr.slice(0, 5).map((m, i) => (
                   <Row key={m.id} m={m} i={i} />
                 ))}
@@ -916,7 +919,7 @@ function TeamInsightsCard({
                   />
                 </div>
               </div>
-              <div className="divide-y" style={{ borderColor: C.tealPale }}>
+              <div>
                 {peers.slice(0, 5).map((m, i) => (
                   <Row key={m.id} m={m} i={i + 10} />
                 ))}
@@ -1580,7 +1583,7 @@ function NewsFeedCard({ token }: { token: string }) {
             No articles found
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+          <div>
             {filtered.map((a, i) => (
               <a
                 key={i}
@@ -1588,7 +1591,10 @@ function NewsFeedCard({ token }: { token: string }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-start gap-2.5 px-4 py-3 group transition-colors no-underline overflow-hidden"
-                style={{ display: "flex" }}
+                style={{
+                  display: "flex",
+                  borderTop: i > 0 ? "1px solid var(--border)" : "none",
+                }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = "var(--surface2)")
                 }
@@ -1604,7 +1610,10 @@ function NewsFeedCard({ token }: { token: string }) {
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span
                       className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
-                      style={{ background: "#F0FDFB", color: a.color }}
+                      style={{
+                        background: "var(--accentLight)",
+                        color: a.color,
+                      }}
                     >
                       {a.source}
                     </span>
@@ -2284,7 +2293,6 @@ export default function Dashboard({
 
         {/* COL 4: Team Approvals + My Requests + Leave Balance */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-
           <PendingApprovalsCard
             loading={loading}
             teamApprovals={teamApprovals}
@@ -2390,7 +2398,6 @@ export default function Dashboard({
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

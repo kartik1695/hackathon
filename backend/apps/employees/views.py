@@ -26,8 +26,17 @@ class EmployeeListCreateView(APIView):
 
     def get(self, request):
         try:
-            limit = int(request.query_params.get("limit", 50))
-            offset = int(request.query_params.get("offset", 0))
+            # Support both limit/offset and page/page_size styles.
+            page = request.query_params.get("page")
+            page_size = request.query_params.get("page_size")
+            if page is not None or page_size is not None:
+                page = int(page or 1)
+                limit = int(page_size or 50)
+                page = max(1, page)
+                offset = (page - 1) * limit
+            else:
+                limit = int(request.query_params.get("limit", 50))
+                offset = int(request.query_params.get("offset", 0))
         except (TypeError, ValueError):
             return Response(error_response("Invalid limit/offset", "INVALID_INPUT"), status=400)
         limit = max(1, min(10000, limit))
@@ -49,12 +58,16 @@ class EmployeeListCreateView(APIView):
             qs = qs.filter(user__name__icontains=search)
 
         total = qs.count()
+        org_nodes = list(qs.values("id", "manager_id"))
         employees = list(qs[offset : offset + limit])
         return Response(
             {
                 "count": total,
                 "limit": limit,
                 "offset": offset,
+                "page": (offset // limit) + 1,
+                "page_size": limit,
+                "org": org_nodes,
                 "results": EmployeeSerializer(
                     employees, many=True, context={"request": request}
                 ).data,

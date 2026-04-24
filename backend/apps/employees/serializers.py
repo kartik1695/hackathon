@@ -38,6 +38,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
     department = DepartmentSerializer(read_only=True)
     manager = ManagerSummarySerializer(read_only=True)
+    manager_id = serializers.IntegerField(source="manager.id", read_only=True)
 
     class Meta:
         model = Employee
@@ -51,6 +52,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
             "user",
             "department",
             "manager",
+            "manager_id",
         )
 
     def get_user(self, obj):
