@@ -7,15 +7,19 @@ import {
 
 const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
-function apiPost(token: string, path: string, body?: object) {
-  return fetch(`${API}${path}`, {
+async function apiPost(token: string, path: string, body?: object) {
+  const r = await fetch(`${API}${path}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
-  }).then(r => r.json());
+  });
+  const text = await r.text();
+  return text ? JSON.parse(text) : {};
 }
-function apiGet(token: string, path: string) {
-  return fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+async function apiGet(token: string, path: string) {
+  const r = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const text = await r.text();
+  return text ? JSON.parse(text) : {};
 }
 
 const TOPIC_LABELS: Record<string, string> = {

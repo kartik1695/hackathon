@@ -381,7 +381,7 @@ export default function AppShell() {
     const tk = getAccess();
     if (tk) {
       fetch(
-        `${import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api"}/notifications/${id}/read/`,
+        `${import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api"}/notifications/${id}/read/`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${tk}` },
@@ -478,6 +478,9 @@ export default function AppShell() {
               )}
               {page === "upskilling" && (
                 <UpskillPage token={token} role={profile?.role ?? ""} />
+              )}
+              {page === "feedback" && (
+                <FeedbackPage token={token} role={profile?.role ?? ""} />
               )}
             </>
           )}

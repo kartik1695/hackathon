@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
 const darkTeal = "var(--navPill)";
 const teal = "var(--accent)";

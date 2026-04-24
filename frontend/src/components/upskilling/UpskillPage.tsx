@@ -2,9 +2,10 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
+  RadialBarChart, RadialBar,
 } from "recharts";
 
-const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
 function apiGet(token: string, path: string) {
   return fetch(`${API}${path}`, {
@@ -1465,21 +1466,6 @@ function ManagerView({ token }: { token: string }) {
 
 // ── Learning Insights (everyone) ─────────────────────────────────────────────
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  RadialBarChart,
-  RadialBar,
-  Legend,
-} from "recharts";
 
 interface OrgInsights {
   trending_skills: { skill_name: string; count: number }[];

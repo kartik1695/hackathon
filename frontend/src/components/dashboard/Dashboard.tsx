@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { NavPage } from "../layout/Sidebar";
 import profilePhoto from "../../assets/man-smiling.png";
 
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
 const C = {
   pageBg: "var(--pageBg)",
@@ -191,7 +191,9 @@ async function apiFetch(token: string, path: string) {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return null;
-    return res.json();
+    const text = await res.text();
+    if (!text) return null;
+    return JSON.parse(text);
   } catch {
     return null;
   }
@@ -2268,6 +2270,8 @@ export default function Dashboard({
           </div>
 
           <TeamInsightsCard teamStatus={teamStatus} loading={loading} />
+
+          <OrgInsightsCard orgStats={orgStats} loading={loading} />
         </div>
 
         {/* COL 3: Time tracker + My Leaves + Leave balance */}
@@ -2277,20 +2281,20 @@ export default function Dashboard({
           <MyLeavesCard myLeaves={myLeaves} loading={loading} onNav={onNav} />
         </div>
 
-        {/* COL 4: Team Approvals (manager) + Org Insights + Leave Balance + My Requests */}
+        {/* COL 4: Team Approvals + My Requests + Leave Balance */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {isManager && (
-            <PendingApprovalsCard
-              loading={loading}
-              pendingLeaves={pendingLeaves}
-              myLeaves={myLeaves}
-              isManager={isManager}
-              onApprove={handleApprove}
-              onReject={handleReject}
-            />
-          )}
 
-          <OrgInsightsCard orgStats={orgStats} loading={loading} />
+          <PendingApprovalsCard
+            loading={loading}
+            teamApprovals={teamApprovals}
+            myLeaves={myLeaves}
+            myRequests={myRequests}
+            isManager={isManager}
+            renotifyLoading={renotifyLoading}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onRenotify={(id, type) => handleRenotify(id, type)}
+          />
 
           {balance && (
             <div
@@ -2380,18 +2384,6 @@ export default function Dashboard({
           )}
         </div>
 
-        {/* COL 4: Pending Approvals (manager) + My Requests (everyone) */}
-        <PendingApprovalsCard
-          loading={loading}
-          pendingLeaves={pendingLeaves}
-          myLeaves={myLeaves}
-          myRequests={myRequests}
-          isManager={isManager}
-          renotifyLoading={renotifyLoading}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          onRenotify={(id, type) => handleRenotify(id, type)}
-        />
       </div>
     </div>
   );
