@@ -71,9 +71,15 @@ def generate_skill_roadmap(employee_id: int, requester_id: int, requester_role: 
         return {"error": "skill_name is required"}
 
     from apps.upskilling.models import SkillRoadmap, RoadmapStep
-    
+    try:
+        from apps.upskilling.models import infer_roadmap_category
+    except Exception:
+        infer_roadmap_category = None
+
     # DEDUPLICATION: Check if a roadmap for this skill already exists
-    existing = SkillRoadmap.objects.filter(employee_id=employee_id, skill_name__iexact=skill_name).first()
+    existing = SkillRoadmap._default_manager.filter(
+        employee_id=employee_id, skill_name__iexact=skill_name
+    ).first()
     if existing:
         res = _get_updated_roadmap_details(existing)
         if existing.status == "COMPLETED":
@@ -102,16 +108,17 @@ def generate_skill_roadmap(employee_id: int, requester_id: int, requester_role: 
         "   - 'resource_url': ALWAYS a high-quality YouTube link (video or playlist).\n\n"
         "Return ONLY a valid JSON object matching this schema:\n"
         "{\n"
-        "  \"description\": \"...\",\n"
-        "  \"steps\": [\n"
+        '  "category": "<AI & Data|Software Engineering|Cloud & DevOps|Supply Chain|Leadership|Finance|Sales & Marketing|Other>",\n'
+        '  "description": "...",\n'
+        '  "steps": [\n'
         "    {\n"
-        "      \"phase\": \"...\",\n"
-        "      \"title\": \"...\",\n"
-        "      \"description\": \"...\",\n"
-        "      \"difficulty\": \"...\",\n"
-        "      \"duration\": 0,\n"
-        "      \"resource_type\": \"video\",\n"
-        "      \"resource_url\": \"https://www.youtube.com/...\"\n"
+        '      "phase": "...",\n'
+        '      "title": "...",\n'
+        '      "description": "...",\n'
+        '      "difficulty": "...",\n'
+        '      "duration": 0,\n'
+        '      "resource_type": "video",\n'
+        '      "resource_url": "https://www.youtube.com/..."\n'
         "    }\n"
         "  ]\n"
         "}"
@@ -124,7 +131,7 @@ def generate_skill_roadmap(employee_id: int, requester_id: int, requester_role: 
             LLMMessage(role="system", content=system_prompt),
             LLMMessage(role="user", content=user_prompt)
         ], temperature=0.0)
-        
+
         content = resp.content.strip()
         match = re.search(r'\{.*\}', content, re.DOTALL)
         roadmap_data = json.loads(match.group(0)) if match else json.loads(content)
@@ -132,16 +139,44 @@ def generate_skill_roadmap(employee_id: int, requester_id: int, requester_role: 
         logger.exception("Failed to generate roadmap content")
         return {"error": f"Failed to generate roadmap content: {str(e)}"}
 
+    category = (roadmap_data.get("category") or "").strip()
+    allowed = {
+        "AI & Data",
+        "Software Engineering",
+        "Cloud & DevOps",
+        "Supply Chain",
+        "Leadership",
+        "Finance",
+        "Sales & Marketing",
+        "Other",
+    }
+    if category not in allowed:
+        if infer_roadmap_category:
+            try:
+                step_titles = [
+                    (s or {}).get("title", "")
+                    for s in (roadmap_data.get("steps") or [])[:10]
+                    if isinstance(s, dict)
+                ]
+                category = infer_roadmap_category(
+                    skill_name, roadmap_data.get("description", ""), step_titles
+                )
+            except Exception:
+                category = ""
+        if category not in allowed:
+            category = "Other"
+
     # Create roadmap in PENDING_APPROVAL — manager must approve before work starts
-    roadmap = SkillRoadmap.objects.create(
+    roadmap = SkillRoadmap._default_manager.create(
         employee_id=employee_id,
         skill_name=skill_name,
+        category=category,
         description=roadmap_data.get("description", ""),
-        status="PENDING_APPROVAL"
+        status="PENDING_APPROVAL",
     )
 
     for i, step_data in enumerate(roadmap_data.get("steps", [])):
-        RoadmapStep.objects.create(
+        RoadmapStep._default_manager.create(
             roadmap=roadmap,
             title=step_data.get("title", ""),
             description=step_data.get("description", ""),
@@ -151,17 +186,23 @@ def generate_skill_roadmap(employee_id: int, requester_id: int, requester_role: 
             phase=step_data.get("phase", ""),
             difficulty=step_data.get("difficulty", "Intermediate"),
             duration=step_data.get("duration", 1),
-            status="PENDING"  # All steps start as PENDING until roadmap is approved
+            status="PENDING",  # All steps start as PENDING until roadmap is approved
         )
 
     # Return full details for UI
     result = _get_updated_roadmap_details(roadmap)
-    
+
     # Add mentors
     from apps.upskilling.models import EmployeeSkill
-    mentors_qs = EmployeeSkill.objects.filter(skill__name__icontains=skill_name, level__gte=3).exclude(employee_id=employee_id).select_related('employee__user')[:3]
+    mentors_qs = (
+        EmployeeSkill._default_manager.filter(
+            skill__name__icontains=skill_name, level__gte=3
+        )
+        .exclude(employee_id=employee_id)
+        .select_related("employee__user")[:3]
+    )
     result["mentors"] = [m.employee.user.name for m in mentors_qs if m.employee.user.name]
-    
+
     # NOTIFICATION: Notify manager for approval
     from apps.notifications.services import InAppNotificationService
     try:
@@ -293,9 +334,11 @@ def save_roadmap_draft(employee_id: int, requester_id: int, requester_role: str,
     from apps.upskilling.models import DraftRoadmap
 
     # Overwrite any existing READY draft for same skill
-    DraftRoadmap.objects.filter(employee_id=employee_id, skill_name__iexact=skill_name, status="READY").delete()
+    DraftRoadmap._default_manager.filter(
+        employee_id=employee_id, skill_name__iexact=skill_name, status="READY"
+    ).delete()
 
-    draft = DraftRoadmap.objects.create(
+    draft = DraftRoadmap._default_manager.create(
         employee_id=employee_id,
         skill_name=skill_name,
         status="READY",
@@ -328,18 +371,30 @@ def confirm_roadmap_draft(employee_id: int, requester_id: int, requester_role: s
     skill_name = (d.get("skill_name") or "").strip()
 
     from apps.upskilling.models import DraftRoadmap, SkillRoadmap, RoadmapStep
+    try:
+        from apps.upskilling.models import infer_roadmap_category
+    except Exception:
+        infer_roadmap_category = None
 
     draft = None
     if draft_id:
-        draft = DraftRoadmap.objects.filter(id=draft_id, employee_id=employee_id, status="READY").first()
+        draft = DraftRoadmap._default_manager.filter(
+            id=draft_id, employee_id=employee_id, status="READY"
+        ).first()
     if not draft and skill_name:
-        draft = DraftRoadmap.objects.filter(employee_id=employee_id, skill_name__iexact=skill_name, status="READY").first()
+        draft = DraftRoadmap._default_manager.filter(
+            employee_id=employee_id, skill_name__iexact=skill_name, status="READY"
+        ).first()
     if not draft:
         return {"error": "No ready draft found. Please generate a draft first."}
 
-    existing = SkillRoadmap.objects.filter(
-        employee_id=employee_id, skill_name__iexact=draft.skill_name
-    ).exclude(status__in=["REJECTED", "ABANDONED"]).first()
+    existing = (
+        SkillRoadmap._default_manager.filter(
+            employee_id=employee_id, skill_name__iexact=draft.skill_name
+        )
+        .exclude(status__in=["REJECTED", "ABANDONED"])
+        .first()
+    )
     if existing:
         res = _get_updated_roadmap_details(existing)
         res["submitted"] = False
@@ -350,14 +405,29 @@ def confirm_roadmap_draft(employee_id: int, requester_id: int, requester_role: s
         )
         return res
 
-    roadmap = SkillRoadmap.objects.create(
+    category = "Other"
+    if infer_roadmap_category:
+        try:
+            step_titles = [
+                step.get("title", "")
+                for step in (draft.draft_steps or [])[:10]
+                if isinstance(step, dict)
+            ]
+            category = infer_roadmap_category(
+                draft.skill_name, draft.draft_description, step_titles
+            )
+        except Exception:
+            category = "Other"
+
+    roadmap = SkillRoadmap._default_manager.create(
         employee_id=employee_id,
         skill_name=draft.skill_name,
+        category=category,
         description=draft.draft_description,
         status="PENDING_APPROVAL",
     )
     for i, step in enumerate(draft.draft_steps):
-        RoadmapStep.objects.create(
+        RoadmapStep._default_manager.create(
             roadmap=roadmap,
             title=step.get("title", ""),
             description=step.get("description", ""),
@@ -413,8 +483,10 @@ def approve_roadmap(employee_id: int, requester_id: int, requester_role: str, in
 
     from apps.upskilling.models import SkillRoadmap
     try:
-        roadmap = SkillRoadmap.objects.select_related("employee__user", "employee__manager__user").get(id=roadmap_id)
-    except SkillRoadmap.DoesNotExist:
+        roadmap = SkillRoadmap._default_manager.select_related(
+            "employee__user", "employee__manager__user"
+        ).get(id=roadmap_id)
+    except Exception:
         return {"error": "Roadmap not found."}
 
     # Authorization: must be this employee's actual manager (or HR/admin)
@@ -465,8 +537,10 @@ def reject_roadmap(employee_id: int, requester_id: int, requester_role: str, inp
 
     from apps.upskilling.models import SkillRoadmap
     try:
-        roadmap = SkillRoadmap.objects.select_related("employee__user", "employee__manager__user").get(id=roadmap_id)
-    except SkillRoadmap.DoesNotExist:
+        roadmap = SkillRoadmap._default_manager.select_related(
+            "employee__user", "employee__manager__user"
+        ).get(id=roadmap_id)
+    except Exception:
         return {"error": "Roadmap not found."}
 
     # Authorization
@@ -506,7 +580,9 @@ def get_skill_roadmaps(employee_id: int, requester_id: int, requester_role: str,
     if err: return err
 
     from apps.upskilling.models import SkillRoadmap
-    roadmaps = SkillRoadmap.objects.filter(employee_id=employee_id).order_by("-created_at")
+    roadmaps = SkillRoadmap._default_manager.filter(employee_id=employee_id).order_by(
+        "-created_at"
+    )
     data = []
     for r in roadmaps:
         data.append({
@@ -528,17 +604,21 @@ def get_roadmap_details(employee_id: int, requester_id: int, requester_role: str
 
     from apps.upskilling.models import SkillRoadmap
     try:
-        roadmap = SkillRoadmap.objects.select_related('employee__user').prefetch_related('steps').get(id=roadmap_id)
-        
+        roadmap = (
+            SkillRoadmap._default_manager.select_related("employee__user")
+            .prefetch_related("steps")
+            .get(id=roadmap_id)
+        )
+
         # Admin/HR can see anything. Employees can see their own. Managers can see direct reports.
         if requester_role in ['admin', 'hr'] or roadmap.employee_id == employee_id:
             return _get_updated_roadmap_details(roadmap)
-        
+
         if requester_role == 'manager' and _is_actual_manager(requester_id, roadmap.employee_id):
             return _get_updated_roadmap_details(roadmap)
-            
+
         return {"error": "You do not have permission to view this roadmap."}
-    except SkillRoadmap.DoesNotExist:
+    except Exception:
         return {"error": "Roadmap not found"}
 
 
@@ -566,12 +646,21 @@ def submit_roadmap_step(employee_id: int, requester_id: int, requester_role: str
     from apps.upskilling.models import RoadmapStep, SkillRoadmap
     step = None
     if isinstance(step_id, int) and step_id <= 20:
-        latest = SkillRoadmap.objects.filter(employee_id=employee_id, status="IN_PROGRESS").first()
-        if latest: step = RoadmapStep.objects.filter(roadmap=latest, order=step_id).first()
-    
+        latest = SkillRoadmap._default_manager.filter(
+            employee_id=employee_id, status="IN_PROGRESS"
+        ).first()
+        if latest:
+            step = RoadmapStep._default_manager.filter(
+                roadmap=latest, order=step_id
+            ).first()
+
     if not step:
-        try: step = RoadmapStep.objects.get(id=step_id, roadmap__employee_id=employee_id)
-        except RoadmapStep.DoesNotExist: return {"error": "Step not found."}
+        try:
+            step = RoadmapStep._default_manager.get(
+                id=step_id, roadmap__employee_id=employee_id
+            )
+        except Exception:
+            return {"error": "Step not found."}
 
     # Validate roadmap is approved and in progress
     if step.roadmap.status == "PENDING_APPROVAL":
@@ -626,8 +715,12 @@ def approve_roadmap_step(employee_id: int, requester_id: int, requester_role: st
     if not step_id: return {"error": "step_id is required"}
 
     from apps.upskilling.models import RoadmapStep, Skill, EmployeeSkill
-    try: step = RoadmapStep.objects.select_related("roadmap__employee__user", "roadmap__employee__manager__user").get(id=step_id)
-    except RoadmapStep.DoesNotExist: return {"error": "Step not found."}
+    try:
+        step = RoadmapStep._default_manager.select_related(
+            "roadmap__employee__user", "roadmap__employee__manager__user"
+        ).get(id=step_id)
+    except Exception:
+        return {"error": "Step not found."}
 
     # Authorization: must be the employee's actual manager (or HR/admin)
     if requester_role == "manager" and not _is_actual_manager(requester_id, step.roadmap.employee_id):
@@ -655,9 +748,11 @@ def approve_roadmap_step(employee_id: int, requester_id: int, requester_role: st
     if not roadmap.steps.filter(is_completed=False).exists():
         roadmap.status = "COMPLETED"
         roadmap.save()
-        skill, _ = Skill.objects.get_or_create(name=roadmap.skill_name)
-        EmployeeSkill.objects.get_or_create(employee=roadmap.employee, skill=skill, defaults={"level": 1})
-    
+        skill, _ = Skill._default_manager.get_or_create(name=roadmap.skill_name)
+        EmployeeSkill._default_manager.get_or_create(
+            employee=roadmap.employee, skill=skill, defaults={"level": 1}
+        )
+
     res = _get_updated_roadmap_details(roadmap)
     res["message"] = f"✅ Step '{step.title}' approved."
 
@@ -689,8 +784,12 @@ def reject_roadmap_step(employee_id: int, requester_id: int, requester_role: str
     if not feedback: return {"error": "Feedback is required for rejection."}
 
     from apps.upskilling.models import RoadmapStep
-    try: step = RoadmapStep.objects.select_related("roadmap__employee__user", "roadmap__employee__manager__user").get(id=step_id)
-    except RoadmapStep.DoesNotExist: return {"error": "Step not found."}
+    try:
+        step = RoadmapStep._default_manager.select_related(
+            "roadmap__employee__user", "roadmap__employee__manager__user"
+        ).get(id=step_id)
+    except Exception:
+        return {"error": "Step not found."}
 
     # Authorization
     if requester_role == "manager" and not _is_actual_manager(requester_id, step.roadmap.employee_id):
@@ -735,13 +834,16 @@ def get_pending_roadmap_approvals(employee_id: int, requester_id: int, requester
 
     try:
         manager = Employee.objects.get(user_id=requester_id)
-    except Employee.DoesNotExist:
+    except Exception:
         return {"error": "Employee profile not found."}
 
-    pending = SkillRoadmap.objects.filter(
-        employee__manager=manager,
-        status="PENDING_APPROVAL"
-    ).select_related("employee__user").order_by("-created_at")
+    pending = (
+        SkillRoadmap._default_manager.filter(
+            employee__manager=manager, status="PENDING_APPROVAL"
+        )
+        .select_related("employee__user")
+        .order_by("-created_at")
+    )
 
     data = []
     for r in pending:

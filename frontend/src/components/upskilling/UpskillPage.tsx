@@ -53,6 +53,7 @@ interface Step {
 interface Roadmap {
   id: number;
   skill_name: string;
+  category?: string;
   description: string;
   status: string;
   created_at: string;
@@ -795,6 +796,21 @@ function EmployeeView({ token }: { token: string }) {
     loadRoadmaps();
   }, [loadRoadmaps]);
 
+  const groupedRoadmaps = useMemo(() => {
+    const grouped: Record<string, Roadmap[]> = {};
+    roadmaps.forEach((r) => {
+      const cat = (r.category || "Other").trim() || "Other";
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(r);
+    });
+    const cats = Object.keys(grouped).sort((a, b) => {
+      if (a === "Other" && b !== "Other") return 1;
+      if (b === "Other" && a !== "Other") return -1;
+      return a.localeCompare(b);
+    });
+    return cats.map((category) => ({ category, items: grouped[category] }));
+  }, [roadmaps]);
+
   async function loadDetail(id: number) {
     const data = await apiGet(token, `/upskilling/roadmaps/${id}/`);
     setSelected(data);
@@ -970,52 +986,80 @@ function EmployeeView({ token }: { token: string }) {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {roadmaps.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => loadDetail(r.id)}
-              className="text-left p-5 rounded-2xl transition-all hover:shadow-md"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--cardBorder)",
-              }}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                  style={{ background: "var(--accentLight)" }}
-                >
-                  🚀
+        <div className="space-y-6">
+          {groupedRoadmaps.map((g) => (
+            <div key={g.category}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h3
+                    className="text-sm font-black"
+                    style={{ color: "var(--ink)" }}
+                  >
+                    {g.category}
+                  </h3>
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                    style={{
+                      background: "var(--accentLight)",
+                      color: "var(--accent)",
+                    }}
+                  >
+                    {g.items.length}
+                  </span>
                 </div>
-                <StatusBadge status={r.status} />
               </div>
-              <h3
-                className="text-sm font-bold mb-1"
-                style={{ color: "var(--ink)" }}
-              >
-                {r.skill_name}
-              </h3>
-              <div className="flex items-center gap-2 mt-3">
-                <ProgressBar
-                  total={r.step_count ?? 0}
-                  done={r.completed_steps ?? 0}
-                />
-                <span
-                  className="text-[10px] whitespace-nowrap"
-                  style={{ color: "var(--muted)" }}
-                >
-                  {r.completed_steps ?? 0}/{r.step_count ?? 0}
-                </span>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {g.items.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => loadDetail(r.id)}
+                    className="text-left p-5 rounded-2xl transition-all hover:shadow-md"
+                    style={{
+                      background: "var(--card)",
+                      border: "1px solid var(--cardBorder)",
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                        style={{ background: "var(--accentLight)" }}
+                      >
+                        🚀
+                      </div>
+                      <StatusBadge status={r.status} />
+                    </div>
+                    <h3
+                      className="text-sm font-bold mb-1"
+                      style={{ color: "var(--ink)" }}
+                    >
+                      {r.skill_name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-3">
+                      <ProgressBar
+                        total={r.step_count ?? 0}
+                        done={r.completed_steps ?? 0}
+                      />
+                      <span
+                        className="text-[10px] whitespace-nowrap"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        {r.completed_steps ?? 0}/{r.step_count ?? 0}
+                      </span>
+                    </div>
+                    <p
+                      className="text-[10px] mt-2"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      {new Date(r.created_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </button>
+                ))}
               </div>
-              <p className="text-[10px] mt-2" style={{ color: "var(--muted)" }}>
-                {new Date(r.created_at).toLocaleDateString("en-IN", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </p>
-            </button>
+            </div>
           ))}
         </div>
       )}
@@ -1637,6 +1681,7 @@ function ManagerView({ token }: { token: string }) {
 // ── Learning Insights (everyone) ─────────────────────────────────────────────
 
 interface OrgInsights {
+  trending_categories?: { category: string; count: number }[];
   trending_skills: { skill_name: string; count: number }[];
   dept_breakdown: {
     dept: string;
@@ -1847,11 +1892,20 @@ function LearningInsightsView({
     value: s.count,
   }));
 
-  const trendData = (insights?.trending_skills ?? []).slice(0, 8).map((s) => ({
-    name:
-      s.skill_name.length > 18 ? s.skill_name.slice(0, 16) + "…" : s.skill_name,
-    count: s.count,
-  }));
+  const trendSource =
+    (insights?.trending_categories ?? []).length > 0
+      ? (insights?.trending_categories ?? []).slice(0, 5).map((c) => ({
+          name: c.category.length > 18 ? c.category.slice(0, 16) + "…" : c.category,
+          count: c.count,
+        }))
+      : (insights?.trending_skills ?? []).slice(0, 5).map((s) => ({
+          name:
+            s.skill_name.length > 18
+              ? s.skill_name.slice(0, 16) + "…"
+              : s.skill_name,
+          count: s.count,
+        }));
+  const trendData = trendSource;
 
   const deptData = (insights?.dept_breakdown ?? []).slice(0, 6).map((d) => ({
     name: d.dept.length > 14 ? d.dept.slice(0, 12) + "…" : d.dept,
@@ -1939,7 +1993,7 @@ function LearningInsightsView({
                   className="text-sm font-bold"
                   style={{ color: "var(--ink)" }}
                 >
-                  🔥 Trending Skills Across Org
+                  🔥 Trending Categories Across Org
                 </h3>
                 <span
                   className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
@@ -1948,7 +2002,7 @@ function LearningInsightsView({
                     color: "var(--accent)",
                   }}
                 >
-                  Top {trendData.length}
+                  Top 5
                 </span>
               </div>
               {trendData.length === 0 ? (
@@ -1988,7 +2042,7 @@ function LearningInsightsView({
                         borderRadius: 12,
                         fontSize: 12,
                       }}
-                      formatter={(v: number) => [v, "Learners"]}
+                      formatter={(v) => [Number(v ?? 0), "Learners"]}
                     />
                     <Bar
                       dataKey="count"
@@ -2523,7 +2577,7 @@ function LearningInsightsView({
                         borderRadius: 12,
                         fontSize: 11,
                       }}
-                      formatter={(v: number) => [`${v}%`, "Completion"]}
+                      formatter={(v) => [`${Number(v ?? 0)}%`, "Completion"]}
                     />
                     <Bar dataKey="pct" radius={[6, 6, 0, 0]}>
                       {insights.team_insights.map((_, i) => (
