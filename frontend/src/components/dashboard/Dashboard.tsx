@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { NavPage } from "../layout/Sidebar";
 import profilePhoto from "../../assets/man-smiling.png";
 
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
 const C = {
   pageBg: "var(--pageBg)",

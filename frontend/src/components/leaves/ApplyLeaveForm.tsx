@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import GlassCard from "../ui/GlassCard";
 
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
 interface ApplyLeaveFormProps {
   token: string;

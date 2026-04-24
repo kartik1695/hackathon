@@ -15,7 +15,7 @@ import {
   RadialBar,
 } from "recharts";
 
-const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
 function apiGet(token: string, path: string) {
   return fetch(`${API}${path}`, {
@@ -486,7 +486,7 @@ function DraftsSection({
   async function discardDraft(id: number) {
     setDiscarding(id);
     await fetch(
-      `${import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api"}/upskilling/drafts/?id=${id}`,
+      `${import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api"}/upskilling/drafts/?id=${id}`,
       {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },

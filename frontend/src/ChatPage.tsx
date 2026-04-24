@@ -1080,7 +1080,7 @@ function RoadmapChatCard({
       ? true
       : employeeId != null && roadmap.employee_id === employeeId;
   const isManager = isManagerRole && !isOwnRoadmap;
-  const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+  const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
   const steps = roadmap.steps ?? [];
   const completed = steps.filter((s: any) => s.is_completed).length;

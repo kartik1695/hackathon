@@ -20,7 +20,7 @@ import {
   Legend,
 } from "recharts";
 
-const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
 
 async function apiPost(token: string, path: string, body?: object) {
   const r = await fetch(`${API}${path}`, {
