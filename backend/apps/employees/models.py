@@ -98,3 +98,28 @@ class Employee(models.Model):
 
     def __str__(self) -> str:
         return f"{self.employee_id} - {self.user_id}"
+
+
+class ReportSnapshot(models.Model):
+    report_key = models.CharField(max_length=200)
+    as_of_date = models.DateField()
+    params = models.JSONField(default=dict, blank=True)
+    payload = models.JSONField()
+    generated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["report_key", "as_of_date"],
+                name="uniq_report_snapshot_key_date",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["report_key", "-as_of_date"],
+                name="report_snapshot_key_asof_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.report_key} @ {self.as_of_date}"

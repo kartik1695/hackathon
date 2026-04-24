@@ -1990,7 +1990,8 @@ export default function Dashboard({
   const totalLeave =
     (balance?.casual_remaining ?? 0) +
     (balance?.privilege_remaining ?? 0) +
-    (balance?.sick_remaining ?? 0);
+    (balance?.sick_remaining ?? 0) +
+    (balance?.comp_off_remaining ?? 0);
 
   return (
     <div className="min-h-full p-6" style={{ background: "transparent" }}>
@@ -2343,10 +2344,16 @@ export default function Dashboard({
                   color: "#14B8A6",
                 },
                 {
-                  label: "Earned",
+                  label: "Privilege",
                   val: balance.privilege_remaining,
                   max: 18,
                   color: C.darkTeal,
+                },
+                {
+                  label: "Comp Off",
+                  val: balance.comp_off_remaining,
+                  max: 10,
+                  color: "#34D399",
                 },
               ].map((item) => (
                 <div key={item.label} className="mb-2">

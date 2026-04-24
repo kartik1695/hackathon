@@ -22,6 +22,7 @@ interface TopBarProps {
   unreadCount: number;
   onMarkRead: (id: number, navTarget?: NavPage) => void;
   onNav: (p: NavPage) => void;
+  role?: string;
   userName?: string;
   onLogout?: () => void;
   themeId: string;
@@ -48,7 +49,7 @@ const NAV_TABS: { id: NavPage; label: string; activeFor?: NavPage[] }[] = [
   { id: "upskilling", label: "Upskilling",  activeFor: ["upskilling"] },
   { id: "feedback",   label: "Pulse",       activeFor: ["feedback"] },
   { id: "chat",       label: "AI Insights", activeFor: ["chat"] },
-  { id: "employees",  label: "Reports" },
+  { id: "reports",    label: "Reports",     activeFor: ["reports"] },
 ];
 
 const darkTeal = "var(--primary-dark)";
@@ -62,6 +63,7 @@ export default function TopBar({
   unreadCount,
   onMarkRead,
   onNav,
+  role = "",
   userName = "",
   onLogout,
   themeId,
@@ -71,6 +73,12 @@ export default function TopBar({
 }: TopBarProps) {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
+  const canViewReports = ["manager", "hr", "cfo"].includes(
+    role.toLowerCase(),
+  );
+  const visibleTabs = NAV_TABS.filter(
+    (tab) => tab.id !== "reports" || canViewReports,
+  );
 
   const isDark = themeId === "midnight";
   const pillBg = isDark ? "rgba(30,30,50,0.75)" : "rgba(255,255,255,0.82)";
@@ -142,13 +150,13 @@ export default function TopBar({
             maxWidth: "calc(100vw - 200px)",
           }}
         >
-          {NAV_TABS.map((tab, i) => {
+          {visibleTabs.map((tab, i) => {
             const isActive = tab.activeFor
               ? tab.activeFor.includes(page)
               : false;
             const isActiveTab =
               isActive &&
-              NAV_TABS.findIndex((x) => x.activeFor?.includes(page)) === i;
+              visibleTabs.findIndex((x) => x.activeFor?.includes(page)) === i;
             return (
               <button
                 key={`${tab.id}-${tab.label}`}
@@ -427,7 +435,7 @@ export default function TopBar({
                               >
                                 {n.body}
                               </div>
-                              {n.metadata?.actioned_by_name && (
+                              {Boolean(n.metadata?.actioned_by_name) && (
                                 <div
                                   style={{
                                     fontSize: 10,
@@ -435,7 +443,7 @@ export default function TopBar({
                                     color: "var(--muted)",
                                   }}
                                 >
-                                  {String(n.metadata.status) === "APPROVED"
+                                  {String(n.metadata?.status) === "APPROVED"
                                     ? "✓ Approved"
                                     : "✗ Rejected"}{" "}
                                   by{" "}
@@ -445,7 +453,7 @@ export default function TopBar({
                                       color: "var(--ink)",
                                     }}
                                   >
-                                    {String(n.metadata.actioned_by_name)}
+                                    {String(n.metadata?.actioned_by_name)}
                                   </span>
                                 </div>
                               )}

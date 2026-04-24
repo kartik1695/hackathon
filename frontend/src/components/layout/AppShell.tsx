@@ -18,6 +18,7 @@ import {
 import ChatPage from "../../ChatPage";
 import UpskillPage from "../upskilling/UpskillPage";
 import FeedbackPage from "../feedback/FeedbackPage";
+import ReportsPage from "../reports/ReportsPage";
 
 type ThemeId =
   | "aurora_teal"
@@ -415,6 +416,7 @@ export default function AppShell() {
           unreadCount={unreadCount}
           onMarkRead={handleMarkRead}
           onNav={setPage}
+          role={profile?.role ?? ""}
           userName={profile?.name ?? ""}
           onLogout={handleLogout}
           themeId={themeId}
@@ -439,6 +441,7 @@ export default function AppShell() {
         unreadCount={unreadCount}
         onMarkRead={handleMarkRead}
         onNav={setPage}
+        role={profile?.role ?? ""}
         userName={profile?.name ?? ""}
         onLogout={handleLogout}
         themeId={themeId}
@@ -481,6 +484,9 @@ export default function AppShell() {
               )}
               {page === "feedback" && (
                 <FeedbackPage token={token} role={profile?.role ?? ""} />
+              )}
+              {page === "reports" && (
+                <ReportsPage token={token} role={profile?.role ?? ""} />
               )}
             </>
           )}
