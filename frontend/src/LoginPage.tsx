@@ -34,32 +34,98 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: "#EBF9F6" }}>
-
-      {/* Left panel */}
-      <div className="hidden lg:flex flex-col justify-between w-[55%] px-16 py-12">
+    <div
+      className="min-h-screen flex"
+      style={{
+        background:
+          "linear-gradient(315deg,hsla(214,81%,86%,1) 0%,hsla(217,57%,93%,1) 47%,hsla(218,60%,92%,1) 100%)",
+      }}
+    >
+      {/* ── Left panel ───────────────────────────────────────────────────────── */}
+      <div className="hidden lg:flex flex-col justify-between w-[55%] px-16 py-14">
         {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-[#111111] flex items-center justify-center text-white font-bold text-sm">H</div>
+        <div className="flex items-center gap-3">
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 9,
+              background: "#1e3a8a",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 14,
+            }}
+          >
+            HE
+          </div>
           <div>
-            <div className="font-bold text-[#111111] text-sm">HRMS</div>
-            <div className="text-[10px] text-gray-400">AI-Powered</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0c1a3a" }}>
+              Human Edge
+            </div>
+            <div style={{ fontSize: 10, color: "#64748b" }}>
+              AI-Powered HRMS
+            </div>
           </div>
         </div>
 
         {/* Hero */}
-        <div className="space-y-10">
+        <div className="space-y-8">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8D44D]/40 text-xs font-semibold text-[#111111]/70 mb-6">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#111111]" />
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 12px",
+                borderRadius: 999,
+                background: "rgba(37,99,235,0.1)",
+                color: "#1e40af",
+                fontSize: 11,
+                fontWeight: 600,
+                marginBottom: 20,
+              }}
+            >
+              <span
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  background: "#2563eb",
+                  display: "inline-block",
+                }}
+              />
               AI-Enabled HR Platform
             </div>
-            <h1 className="text-5xl font-bold text-[#111111] leading-[1.1] tracking-tight">
-              The smartest<br />HR workspace<br />
-              <span style={{ color: "#E8D44D", WebkitTextStroke: "1px #111111" }}>you'll ever use.</span>
+            <h1
+              style={{
+                fontSize: 50,
+                fontWeight: 250,
+                color: "#0c1a3a",
+                lineHeight: 1.1,
+                letterSpacing: "-0.03em",
+                margin: "0 0 16px",
+              }}
+            >
+              The smartest
+              <br />
+              HR workspace
+              <br />
+              <span style={{ color: "#2563eb" }}>you'll ever use.</span>
             </h1>
-            <p className="text-gray-500 mt-5 text-base leading-relaxed max-w-sm">
-              Leave management, attendance, org insights — powered by conversational AI. No forms, no friction.
+            <p
+              style={{
+                fontSize: 14,
+                color: "#64748b",
+                fontWeight: 300,
+                maxWidth: 340,
+                margin: 0,
+              }}
+            >
+              Leave management, attendance, org insights — powered by
+              conversational AI. No forms, no friction.
             </p>
           </div>
 
@@ -68,10 +134,34 @@ export default function LoginPage() {
             {FEATURES.map((f, i) => (
               <div
                 key={f.label}
-                className={`p-4 rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.07)] ${i === 0 ? "bg-[#111111]" : i === 1 ? "bg-[#E8D44D]" : "bg-white"}`}
+                style={{
+                  padding: "16px",
+                  borderRadius: 16,
+                  background: i === 0 ? "#1e3a8a" : "rgba(255,255,255,0.55)",
+                  backdropFilter: i !== 0 ? "blur(20px)" : undefined,
+                  WebkitBackdropFilter: i !== 0 ? "blur(20px)" : undefined,
+                  border: i !== 0 ? "1px solid rgba(255,255,255,0.6)" : "none",
+                  boxShadow: "0 2px 12px rgba(37,99,235,0.06)",
+                }}
               >
-                <div className={`text-sm font-bold mb-0.5 ${i === 0 ? "text-white" : "text-[#111111]"}`}>{f.label}</div>
-                <div className={`text-xs ${i === 0 ? "text-white/50" : "text-gray-500"}`}>{f.desc}</div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    marginBottom: 3,
+                    color: i === 0 ? "#fff" : "#0c1a3a",
+                  }}
+                >
+                  {f.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    color: i === 0 ? "rgba(255,255,255,0.55)" : "#64748b",
+                  }}
+                >
+                  {f.desc}
+                </div>
               </div>
             ))}
           </div>
@@ -83,61 +173,220 @@ export default function LoginPage() {
             { val: "+18K", label: "Requests processed" },
             { val: "94%", label: "AI accuracy" },
             { val: "4.8★", label: "Satisfaction" },
-          ].map(s => (
+          ].map((s) => (
             <div key={s.label}>
-              <div className="text-2xl font-bold text-[#111111]">{s.val}</div>
-              <div className="text-xs text-gray-400 mt-0.5">{s.label}</div>
+              <div
+                style={{
+                  fontSize: 28,
+                  fontWeight: 250,
+                  color: "#0c1a3a",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {s.val}
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                {s.label}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Right panel — login form */}
+      {/* ── Right panel — login form ──────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 items-center justify-center px-8 py-12">
         {/* Mobile logo */}
         <div className="flex items-center gap-2 mb-10 lg:hidden">
-          <div className="w-9 h-9 rounded-xl bg-[#111111] flex items-center justify-center text-white text-xs font-bold">H</div>
-          <span className="font-bold text-[#111111] text-base">HRMS</span>
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              background: "#1e3a8a",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+            }}
+          >
+            HE
+          </div>
+          <span style={{ fontWeight: 600, fontSize: 15, color: "#0c1a3a" }}>
+            Human Edge
+          </span>
         </div>
 
         <div className="w-full max-w-sm">
-          <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
-            <div className="mb-7">
-              <div className="w-11 h-11 rounded-2xl bg-[#E8D44D] flex items-center justify-center mb-5">
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#111" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="7" r="4" stroke="#111" strokeWidth="2"/></svg>
+          <div
+            style={{
+              background: "rgba(255,255,255,0.55)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              borderRadius: 20,
+              padding: 32,
+              border: "1px solid rgba(255,255,255,0.6)",
+              boxShadow:
+                "0 2px 20px rgba(37,99,235,0.06),0 0 0 1px rgba(255,255,255,0.4) inset",
+            }}
+          >
+            <div style={{ marginBottom: 24 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  background: "#1e3a8a",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 18,
+                }}
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                  <path
+                    d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+                    stroke="#fff"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="12" cy="7" r="4" stroke="#fff" strokeWidth="2" />
+                </svg>
               </div>
-              <h2 className="text-2xl font-bold text-[#111111] tracking-tight">Welcome back</h2>
-              <p className="text-sm text-gray-400 mt-1">Sign in to your workspace</p>
+              <h2
+                style={{
+                  fontSize: 22,
+                  fontWeight: 250,
+                  color: "#0c1a3a",
+                  letterSpacing: "-0.02em",
+                  margin: "0 0 6px",
+                }}
+              >
+                Welcome back
+              </h2>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "#64748b",
+                  margin: 0,
+                  fontWeight: 300,
+                }}
+              >
+                Sign in to your workspace
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form
+              onSubmit={handleSubmit}
+              style={{ display: "flex", flexDirection: "column", gap: 14 }}
+            >
               <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Email</label>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    color: "#64748b",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 5,
+                  }}
+                >
+                  Email
+                </label>
                 <input
                   type="email"
                   required
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
-                  className="w-full px-4 py-3 rounded-xl text-sm text-gray-900 bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#E8D44D] focus:bg-white transition-all placeholder-gray-300"
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    fontSize: 13,
+                    color: "#0c1a3a",
+                    fontFamily: "inherit",
+                    background: "rgba(255,255,255,0.7)",
+                    border: "1px solid rgba(255,255,255,0.6)",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    transition: "border-color 0.15s, background 0.15s",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "#2563eb";
+                    e.currentTarget.style.background = "#fff";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.6)";
+                    e.currentTarget.style.background = "rgba(255,255,255,0.7)";
+                  }}
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Password</label>
-                <div className="relative">
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    color: "#64748b",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 5,
+                  }}
+                >
+                  Password
+                </label>
+                <div style={{ position: "relative" }}>
                   <input
                     type={showPass ? "text" : "password"}
                     required
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 rounded-xl text-sm text-gray-900 bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#E8D44D] focus:bg-white transition-all placeholder-gray-300 pr-12"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      paddingRight: 50,
+                      borderRadius: 10,
+                      fontSize: 13,
+                      color: "#0c1a3a",
+                      fontFamily: "inherit",
+                      background: "rgba(255,255,255,0.7)",
+                      border: "1px solid rgba(255,255,255,0.6)",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      transition: "border-color 0.15s, background 0.15s",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "#2563eb";
+                      e.currentTarget.style.background = "#fff";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor =
+                        "rgba(255,255,255,0.6)";
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.7)";
+                    }}
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPass(v => !v)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-xs font-semibold"
+                    onClick={() => setShowPass((v) => !v)}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      color: "#64748b",
+                      fontFamily: "inherit",
+                    }}
                   >
                     {showPass ? "Hide" : "Show"}
                   </button>
@@ -145,7 +394,16 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: "rgba(239,68,68,0.08)",
+                    border: "1px solid rgba(239,68,68,0.2)",
+                    fontSize: 12.5,
+                    color: "#ef4444",
+                  }}
+                >
                   {error}
                 </div>
               )}
@@ -153,36 +411,101 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 rounded-xl bg-[#111111] text-white text-sm font-semibold hover:bg-gray-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: 999,
+                  background: "#1e3a8a",
+                  color: "#fff",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  fontFamily: "inherit",
+                  border: "none",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  opacity: loading ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "opacity 0.15s",
+                  marginTop: 6,
+                }}
               >
                 {loading ? (
                   <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span
+                      style={{
+                        width: 16,
+                        height: 16,
+                        border: "2px solid rgba(255,255,255,0.3)",
+                        borderTopColor: "#fff",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
                     Signing in…
                   </>
                 ) : (
-                  <>Sign in →</>
+                  "Sign in →"
                 )}
               </button>
             </form>
 
-            <div className="flex items-center gap-3 my-5">
-              <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-[10px] text-gray-300 font-medium">SECURED</span>
-              <div className="flex-1 h-px bg-gray-100" />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                margin: "20px 0",
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  height: 1,
+                  background: "rgba(37,99,235,0.09)",
+                }}
+              />
+              <span style={{ fontSize: 10, color: "#64748b", fontWeight: 500 }}>
+                SECURED
+              </span>
+              <div
+                style={{
+                  flex: 1,
+                  height: 1,
+                  background: "rgba(37,99,235,0.09)",
+                }}
+              />
             </div>
 
-            <div className="flex items-center justify-center gap-4">
-              {["JWT Auth", "AES-256", "SOC2"].map(b => (
-                <div key={b} className="flex items-center gap-1 text-[10px] text-gray-300 font-medium">
-                  <span>✓</span>
+            <div style={{ display: "flex", justifyContent: "center", gap: 20 }}>
+              {["JWT Auth", "AES-256", "SOC2"].map((b) => (
+                <div
+                  key={b}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 10,
+                    color: "#64748b",
+                    fontWeight: 500,
+                  }}
+                >
+                  <span style={{ color: "#2563eb" }}>✓</span>
                   <span>{b}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <p className="text-center text-xs text-gray-400 mt-5">
+          <p
+            style={{
+              textAlign: "center",
+              fontSize: 11,
+              color: "#64748b",
+              marginTop: 20,
+            }}
+          >
             HRMS · AI-Powered Human Resource Management
           </p>
         </div>
