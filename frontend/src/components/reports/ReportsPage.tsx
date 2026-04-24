@@ -5,7 +5,7 @@ import {
   AreaChart, Area, Cell, PieChart, Pie, Legend,
 } from "recharts";
 
-const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
+const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
 
 async function get(token: string, path: string) {
   try {
@@ -396,14 +396,26 @@ function SkillsIntelTab({ data, loading }: { data: SkillSalaryRow[]; loading: bo
         </div>
 
         {/* Table header */}
-        <div style={{ display: "grid", gridTemplateColumns: "2.5fr 1.2fr 1.5fr 1fr 1fr 1fr 100px", gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--cardBorder)" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2.5fr 1.2fr 1.5fr 1fr 1fr 1fr 100px",
+            gap: 8,
+            padding: "8px 12px",
+            borderBottom: "1px solid var(--cardBorder)",
+            position: "sticky",
+            top: 0,
+            background: "var(--card)",
+            zIndex: 2,
+          }}
+        >
           {["Employee", "Dept", "Title", "Avg Skill", "Monthly Gross", "vs Dept Avg", "Flag"].map(h => (
             <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
           ))}
         </div>
 
         {/* Table rows */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: "column", maxHeight: 560, overflowY: "auto", paddingRight: 6 }}>
           {filtered.map(row => {
             const cfg = flagConfig[row.flag];
             const pctVsDept = row.dept_avg_gross > 0 ? Math.round(((row.monthly_gross - row.dept_avg_gross) / row.dept_avg_gross) * 100) : 0;
@@ -834,12 +846,21 @@ export default function ReportsPage({ token, role }: { token: string; role: stri
                     <InfoTip text="health score is 0–100 (higher = healthier). It’s computed per department from: attendance % (50%) + (100 − penalty pressure) (30%) + leave utilisation % (20%)." />
                   }
                 >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                      maxHeight: 420,
+                      overflowY: "auto",
+                      paddingRight: 6,
+                    }}
+                  >
                     {deptHealth.length === 0 ? (
                       <div style={{ textAlign: "center", padding: 24, color: "var(--muted)", fontSize: 12 }}>No department data available</div>
                     ) : (
                       <>
-                        {deptHealth.slice(0, 10).map(d => (
+                        {deptHealth.map(d => (
                           <div key={d.dept}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                               <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{d.dept}</span>
@@ -857,11 +878,6 @@ export default function ReportsPage({ token, role }: { token: string; role: stri
                             </div>
                           </div>
                         ))}
-                        {deptHealth.length > 10 && (
-                          <div style={{ fontSize: 11, color: "var(--muted)", paddingTop: 2 }}>
-                            Showing 10 of {deptHealth.length} departments
-                          </div>
-                        )}
                       </>
                     )}
                   </div>
@@ -958,7 +974,19 @@ export default function ReportsPage({ token, role }: { token: string; role: stri
 
               <SectionCard title="Attendance Irregularity Report" subtitle="AI-detected anomalous patterns — sorted by severity">
                 <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "240px 150px 72px 72px 1fr 140px", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--cardBorder)" }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "240px 150px 72px 72px 1fr 140px",
+                      gap: 12,
+                      padding: "10px 14px",
+                      borderBottom: "1px solid var(--cardBorder)",
+                      position: "sticky",
+                      top: 0,
+                      background: "var(--card)",
+                      zIndex: 2,
+                    }}
+                  >
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Employee</div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dept</div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Absent</div>
@@ -969,33 +997,35 @@ export default function ReportsPage({ token, role }: { token: string; role: stri
                       <InfoTip text="anomaly_score (0–100). Higher = more irregular. Based on absence rate, late check-ins and active penalties in the last 30 days." />
                     </div>
                   </div>
-                  {anomalies.map(a => (
-                    <div
-                      key={a.employee_id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "240px 150px 72px 72px 1fr 140px",
-                        gap: 12,
-                        padding: "12px 14px",
-                        borderBottom: "1px solid var(--cardBorder)",
-                        alignItems: "center",
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "var(--accentLight)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.employee_name}</div>
-                      <div style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.department}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#ef4444" }}>{a.absent_days}d</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>{a.late_days}d</div>
-                      <div style={{ fontSize: 11.5, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.pattern}</div>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-                        <div style={{ width: 72, height: 5, borderRadius: 999, background: "var(--cardBorder)", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${a.anomaly_score}%`, background: a.anomaly_score > 70 ? "#ef4444" : a.anomaly_score > 40 ? "#f59e0b" : "#10b981", borderRadius: 999 }} />
+                  <div style={{ maxHeight: 520, overflowY: "auto", paddingRight: 6 }}>
+                    {anomalies.map(a => (
+                      <div
+                        key={a.employee_id}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "240px 150px 72px 72px 1fr 140px",
+                          gap: 12,
+                          padding: "12px 14px",
+                          borderBottom: "1px solid var(--cardBorder)",
+                          alignItems: "center",
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "var(--accentLight)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.employee_name}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.department}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#ef4444" }}>{a.absent_days}d</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>{a.late_days}d</div>
+                        <div style={{ fontSize: 11.5, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.pattern}</div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                          <div style={{ width: 72, height: 5, borderRadius: 999, background: "var(--cardBorder)", overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${a.anomaly_score}%`, background: a.anomaly_score > 70 ? "#ef4444" : a.anomaly_score > 40 ? "#f59e0b" : "#10b981", borderRadius: 999 }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: a.anomaly_score > 70 ? "#ef4444" : "var(--muted)", width: 28, textAlign: "right" }}>{a.anomaly_score}</span>
                         </div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: a.anomaly_score > 70 ? "#ef4444" : "var(--muted)", width: 28, textAlign: "right" }}>{a.anomaly_score}</span>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </SectionCard>
 
@@ -1032,7 +1062,7 @@ export default function ReportsPage({ token, role }: { token: string; role: stri
                   <InfoTip text="burnout_score is 0–100 (higher = higher burnout risk). Thresholds: ≥70 critical, 50–69 high, 25–49 medium, <25 low. Built from signals like low leave utilisation, high absences, active penalties, rejected requests." />
                 }
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: 560, overflowY: "auto", paddingRight: 6 }}>
                   {burnout.map(b => (
                     <div key={b.employee_id} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: 14, borderRadius: 12, background: "var(--accentLight)" }}>
                       <div style={{ width: 40, height: 40, borderRadius: 12, background: RISK_COLORS[b.risk_level], display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
@@ -1079,7 +1109,7 @@ export default function ReportsPage({ token, role }: { token: string; role: stri
                   <InfoTip text="risk_score is 0–100 (higher = higher attrition risk). Thresholds: ≥55 high, 30–54 medium, <30 low. Built from signals like long tenure, high absences, rejected leave requests, active penalties, and frequent regularizations." />
                 }
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: 560, overflowY: "auto", paddingRight: 6 }}>
                   {attrition.map(a => (
                     <div key={a.employee_id} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: 14, borderRadius: 12, background: "var(--accentLight)" }}>
                       <div style={{ width: 40, height: 40, borderRadius: 12, background: RISK_COLORS[a.risk_level], display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>

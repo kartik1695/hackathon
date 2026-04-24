@@ -12,6 +12,27 @@ from .serializers import SkillRoadmapSerializer, SkillRoadmapListSerializer, Roa
 
 logger = logging.getLogger("hrms")
 
+_ORG_INSIGHTS_CACHE_KEY = "upskilling:org-insights:global:v3"
+
+
+def _get_cache():
+    try:
+        from core.cache.redis_backend import RedisBackend
+
+        return RedisBackend()
+    except Exception:
+        return None
+
+
+def _invalidate_org_insights_cache():
+    cache = _get_cache()
+    if not cache:
+        return
+    try:
+        cache.delete(_ORG_INSIGHTS_CACHE_KEY)
+    except Exception:
+        logger.exception("Failed to invalidate upskilling org insights cache")
+
 
 def _get_employee(user):
     try:
@@ -51,10 +72,11 @@ class RoadmapListView(APIView):
         if "error" in result:
             return Response(result, status=400)
 
+        _invalidate_org_insights_cache()
         try:
             roadmap = SkillRoadmap.objects.prefetch_related("steps").get(id=result["id"])
             return Response(SkillRoadmapSerializer(roadmap).data, status=201)
-        except SkillRoadmap.DoesNotExist:
+        except Exception:
             return Response(result, status=201)
 
 
@@ -65,7 +87,7 @@ class RoadmapDetailView(APIView):
     def _get_roadmap(self, pk, emp):
         try:
             roadmap = SkillRoadmap.objects.prefetch_related("steps").get(pk=pk)
-        except SkillRoadmap.DoesNotExist:
+        except Exception:
             return None, Response({"error": "Not found"}, status=404)
 
         role = emp.role
@@ -260,100 +282,195 @@ class OrgLearningInsightsView(APIView):
         from django.utils import timezone
         from datetime import timedelta
         from apps.employees.models import Employee
+        from django.db.models import Value, CharField
+        from django.db.models.functions import Coalesce, NullIf
 
         emp = _get_employee(request.user)
         if not emp:
             return Response({"error": "Employee profile not found"}, status=404)
+
+        cache = _get_cache()
+        cached_global = None
+        if cache:
+            try:
+                cached_global = cache.get(_ORG_INSIGHTS_CACHE_KEY)
+            except Exception:
+                logger.exception("Failed to read upskilling org insights cache")
 
         active_statuses = ["IN_PROGRESS", "PENDING_APPROVAL", "PENDING_REVIEW", "COMPLETED"]
         now = timezone.now()
         thirty_days_ago = now - timedelta(days=30)
         seven_days_ago = now - timedelta(days=7)
 
-        # Trending skills org-wide
-        trending = list(
-            SkillRoadmap.objects
-            .filter(status__in=active_statuses)
-            .values("skill_name")
-            .annotate(count=Count("id"))
-            .order_by("-count")[:10]
-        )
-
-        # Department breakdown with completion rate
-        from django.db.models import Q as DQ
-        raw_dept = (
-            SkillRoadmap.objects
-            .values("employee__department_id", "employee__department__name")
-            .annotate(
-                total=Count("id", filter=DQ(status__in=active_statuses)),
-                completed=Count("id", filter=DQ(status="COMPLETED")),
+        if cached_global:
+            payload = dict(cached_global)
+        else:
+            trending = list(
+                SkillRoadmap.objects.filter(status__in=active_statuses)
+                .values("skill_name")
+                .annotate(count=Count("id"))
+                .order_by("-count")[:10]
             )
-            .filter(total__gt=0)
-            .order_by("-total")
-        )
-        seen_dept_ids = set()
-        dept_data = []
-        for row in raw_dept:
-            dept_id = row["employee__department_id"]
-            if dept_id in seen_dept_ids:
-                continue
-            seen_dept_ids.add(dept_id)
-            total_d = row["total"]
-            completed_d = row["completed"]
-            dept_data.append({
-                "dept": row["employee__department__name"] or "Unknown",
-                "count": total_d,
-                "completed": completed_d,
-                "completion_rate": round(completed_d / total_d * 100) if total_d else 0,
-            })
 
-        # Status distribution
-        status_dist = list(
-            SkillRoadmap.objects.values("status").annotate(count=Count("id"))
-        )
+            trending_categories = []
+            try:
+                from collections import Counter
+                from .models import infer_roadmap_category
 
-        # Totals
-        total = SkillRoadmap.objects.count()
-        completed = SkillRoadmap.objects.filter(status="COMPLETED").count()
-        in_progress = SkillRoadmap.objects.filter(status="IN_PROGRESS").count()
-        new_this_month = SkillRoadmap.objects.filter(created_at__gte=thirty_days_ago).count()
-        new_this_week = SkillRoadmap.objects.filter(created_at__gte=seven_days_ago).count()
+                cat_counter: Counter[str] = Counter()
+                rows = SkillRoadmap.objects.filter(status__in=active_statuses).values(
+                    "category", "skill_name", "description"
+                )
+                for r in rows:
+                    raw_cat = (r.get("category") or "").strip()
+                    if raw_cat:
+                        cat = raw_cat
+                    else:
+                        cat = infer_roadmap_category(
+                            r.get("skill_name") or "",
+                            r.get("description") or "",
+                            [],
+                        )
+                    cat_counter[cat or "Other"] += 1
 
-        # Active learners count
-        active_learners = (
-            SkillRoadmap.objects
-            .filter(status__in=["IN_PROGRESS", "PENDING_REVIEW"])
-            .values("employee_id").distinct().count()
-        )
+                trending_categories = [
+                    {"category": k, "count": v} for k, v in cat_counter.most_common(10)
+                ]
+            except Exception:
+                trending_categories_raw = list(
+                    SkillRoadmap.objects.filter(status__in=active_statuses)
+                    .annotate(
+                        category_norm=Coalesce(
+                            NullIf("category", Value("")),
+                            Value("Other"),
+                            output_field=CharField(),
+                        )
+                    )
+                    .values("category_norm")
+                    .annotate(count=Count("id"))
+                    .order_by("-count")[:10]
+                )
+                trending_categories = [
+                    {"category": row["category_norm"], "count": row["count"]}
+                    for row in trending_categories_raw
+                ]
 
-        # Top learners (most completed steps)
-        from .models import RoadmapStep
-        top_learners = []
-        learner_data = (
-            RoadmapStep.objects
-            .filter(is_completed=True)
-            .values("roadmap__employee__user__name", "roadmap__employee_id")
-            .annotate(steps_done=Count("id"))
-            .order_by("-steps_done")[:5]
-        )
-        for ld in learner_data:
-            top_learners.append({
-                "name": ld["roadmap__employee__user__name"] or "Unknown",
-                "steps_done": ld["steps_done"],
-            })
+            from django.db.models import Q as DQ
 
-        # Skills completed this month
-        skills_completed_month = RoadmapStep.objects.filter(
-            is_completed=True, completed_at__gte=thirty_days_ago
-        ).count()
+            raw_dept = (
+                SkillRoadmap.objects.values(
+                    "employee__department_id", "employee__department__name"
+                )
+                .annotate(
+                    total=Count("id", filter=DQ(status__in=active_statuses)),
+                    completed=Count("id", filter=DQ(status="COMPLETED")),
+                )
+                .filter(total__gt=0)
+                .order_by("-total")
+            )
+            seen_dept_ids = set()
+            dept_data = []
+            for row in raw_dept:
+                dept_id = row["employee__department_id"]
+                if dept_id in seen_dept_ids:
+                    continue
+                seen_dept_ids.add(dept_id)
+                total_d = row["total"]
+                completed_d = row["completed"]
+                dept_data.append(
+                    {
+                        "dept": row["employee__department__name"] or "Unknown",
+                        "count": total_d,
+                        "completed": completed_d,
+                        "completion_rate": (
+                            round(completed_d / total_d * 100) if total_d else 0
+                        ),
+                    }
+                )
 
-        # Recent activity (last 7 roadmaps created)
-        recent_roadmaps = list(
-            SkillRoadmap.objects
-            .select_related("employee__user")
-            .order_by("-created_at")[:7]
-            .values("skill_name", "status", "employee__user__name", "created_at")
-        )
+            status_dist = list(
+                SkillRoadmap.objects.values("status").annotate(count=Count("id"))
+            )
+
+            total = SkillRoadmap.objects.count()
+            completed = SkillRoadmap.objects.filter(status="COMPLETED").count()
+            in_progress = SkillRoadmap.objects.filter(status="IN_PROGRESS").count()
+            new_this_month = SkillRoadmap.objects.filter(
+                created_at__gte=thirty_days_ago
+            ).count()
+            new_this_week = SkillRoadmap.objects.filter(
+                created_at__gte=seven_days_ago
+            ).count()
+
+            active_learners = (
+                SkillRoadmap.objects.filter(
+                    status__in=["IN_PROGRESS", "PENDING_REVIEW"]
+                )
+                .values("employee_id")
+                .distinct()
+                .count()
+            )
+
+            from .models import RoadmapStep
+
+            top_learners = []
+            learner_data = (
+                RoadmapStep.objects.filter(is_completed=True)
+                .values("roadmap__employee__user__name", "roadmap__employee_id")
+                .annotate(steps_done=Count("id"))
+                .order_by("-steps_done")[:5]
+            )
+            for ld in learner_data:
+                top_learners.append(
+                    {
+                        "name": ld["roadmap__employee__user__name"] or "Unknown",
+                        "steps_done": ld["steps_done"],
+                    }
+                )
+
+            skills_completed_month = RoadmapStep.objects.filter(
+                is_completed=True, completed_at__gte=thirty_days_ago
+            ).count()
+
+            recent_roadmaps = list(
+                SkillRoadmap.objects.select_related("employee__user")
+                .order_by("-created_at")[:7]
+                .values("skill_name", "status", "employee__user__name", "created_at")
+            )
+
+            payload = {
+                "trending_skills": trending,
+                "trending_categories": trending_categories,
+                "dept_breakdown": dept_data[:8],
+                "status_distribution": status_dist,
+                "total_roadmaps": total,
+                "completed_roadmaps": completed,
+                "in_progress_roadmaps": in_progress,
+                "completion_rate": round(completed / total * 100) if total else 0,
+                "active_learners": active_learners,
+                "new_this_month": new_this_month,
+                "new_this_week": new_this_week,
+                "skills_completed_month": skills_completed_month,
+                "top_learners": top_learners,
+                "recent_activity": [
+                    {
+                        "skill": r["skill_name"],
+                        "status": r["status"],
+                        "employee": r["employee__user__name"] or "Unknown",
+                        "created_at": (
+                            r["created_at"].isoformat() if r["created_at"] else ""
+                        ),
+                    }
+                    for r in recent_roadmaps
+                ],
+                "team_insights": [],
+            }
+
+            if cache:
+                try:
+                    cache.set(_ORG_INSIGHTS_CACHE_KEY, payload, ttl_seconds=120)
+                except Exception:
+                    logger.exception("Failed to write upskilling org insights cache")
 
         # Team insights (manager)
         team_insights = []
@@ -380,30 +497,8 @@ class OrgLearningInsightsView(APIView):
                 })
             team_insights.sort(key=lambda x: -x["completion_pct"])
 
-        return Response({
-            "trending_skills": trending,
-            "dept_breakdown": dept_data[:8],
-            "status_distribution": status_dist,
-            "total_roadmaps": total,
-            "completed_roadmaps": completed,
-            "in_progress_roadmaps": in_progress,
-            "completion_rate": round(completed / total * 100) if total else 0,
-            "active_learners": active_learners,
-            "new_this_month": new_this_month,
-            "new_this_week": new_this_week,
-            "skills_completed_month": skills_completed_month,
-            "top_learners": top_learners,
-            "recent_activity": [
-                {
-                    "skill": r["skill_name"],
-                    "status": r["status"],
-                    "employee": r["employee__user__name"] or "Unknown",
-                    "created_at": r["created_at"].isoformat() if r["created_at"] else "",
-                }
-                for r in recent_roadmaps
-            ],
-            "team_insights": team_insights,
-        })
+        payload["team_insights"] = team_insights
+        return Response(payload)
 
 
 class DeptPeersRoadmapsView(APIView):
@@ -449,7 +544,7 @@ class CopyRoadmapView(APIView):
 
         try:
             source = SkillRoadmap.objects.prefetch_related("steps").get(pk=pk)
-        except SkillRoadmap.DoesNotExist:
+        except Exception:
             return Response({"error": "Roadmap not found"}, status=404)
 
         if source.employee_id == emp.id:
@@ -464,10 +559,22 @@ class CopyRoadmapView(APIView):
         if existing:
             return Response({"error": f"You already have an active roadmap for {source.skill_name}"}, status=400)
 
+        try:
+            from .models import infer_roadmap_category
+
+            category = source.category or infer_roadmap_category(
+                source.skill_name,
+                source.description,
+                list(source.steps.values_list("title", flat=True)[:10]),
+            )
+        except Exception:
+            category = source.category or "Other"
+
         # Create copy
         new_roadmap = SkillRoadmap.objects.create(
             employee=emp,
             skill_name=source.skill_name,
+            category=category,
             description=f"Copied from {source.employee.user.name if source.employee.user else 'colleague'}. {source.description}",
             status="PENDING_APPROVAL",
         )
@@ -498,7 +605,21 @@ class CopyRoadmapView(APIView):
         except Exception:
             pass
 
+        _invalidate_org_insights_cache()
         new_roadmap.refresh_from_db()
+        try:
+            from .models import infer_roadmap_category
+
+            cat = new_roadmap.category or infer_roadmap_category(
+                new_roadmap.skill_name,
+                new_roadmap.description,
+                list(new_roadmap.steps.values_list("title", flat=True)[:10]),
+            )
+            if cat and cat != new_roadmap.category:
+                new_roadmap.category = cat
+                new_roadmap.save(update_fields=["category", "updated_at"])
+        except Exception:
+            pass
         return Response(SkillRoadmapSerializer(new_roadmap).data, status=201)
 
 
@@ -544,7 +665,7 @@ class DraftRoadmapConfirmView(APIView):
         from .models import DraftRoadmap
         try:
             draft = DraftRoadmap.objects.get(pk=pk, employee=emp, status="READY")
-        except DraftRoadmap.DoesNotExist:
+        except Exception:
             return Response({"error": "Draft not found or already submitted"}, status=404)
 
         # Check no active roadmap already exists
@@ -554,9 +675,24 @@ class DraftRoadmapConfirmView(APIView):
         if existing:
             return Response({"error": f"A roadmap for '{draft.skill_name}' already exists (status: {existing.status})"}, status=400)
 
+        try:
+            from .models import infer_roadmap_category
+
+            step_titles = [
+                step.get("title", "")
+                for step in (draft.draft_steps or [])[:10]
+                if isinstance(step, dict)
+            ]
+            category = infer_roadmap_category(
+                draft.skill_name, draft.draft_description, step_titles
+            )
+        except Exception:
+            category = "Other"
+
         roadmap = SkillRoadmap.objects.create(
             employee=emp,
             skill_name=draft.skill_name,
+            category=category,
             description=draft.draft_description,
             status="PENDING_APPROVAL",
         )
@@ -589,4 +725,18 @@ class DraftRoadmapConfirmView(APIView):
         except Exception:
             logger.exception("Failed to notify manager after draft confirm")
 
+        _invalidate_org_insights_cache()
+        try:
+            from .models import infer_roadmap_category
+
+            cat = roadmap.category or infer_roadmap_category(
+                roadmap.skill_name,
+                roadmap.description,
+                list(roadmap.steps.values_list("title", flat=True)[:10]),
+            )
+            if cat and cat != roadmap.category:
+                roadmap.category = cat
+                roadmap.save(update_fields=["category", "updated_at"])
+        except Exception:
+            pass
         return Response({"status": "submitted", "roadmap_id": roadmap.id, "skill_name": roadmap.skill_name})
