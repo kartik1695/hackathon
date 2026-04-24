@@ -2045,7 +2045,7 @@ export default function Dashboard({
               borderRadius: 20,
               height: "240px",
               background:
-                "linear-gradient(170deg,#b8d4f8 0%,#c8dffc 60%,#d4e8ff 100%)",
+                "linear-gradient(170deg, var(--accentLight) 0%, var(--surface2) 100%)",
             }}
             onClick={() => onNav("employees")}
           >
