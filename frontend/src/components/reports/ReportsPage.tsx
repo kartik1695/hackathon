@@ -5,7 +5,7 @@ import {
   AreaChart, Area, Cell, PieChart, Pie, Legend,
 } from "recharts";
 
-const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
+const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
 
 async function get(token: string, path: string) {
   try {

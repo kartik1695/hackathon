@@ -900,7 +900,7 @@ function EmployeeView({ token }: { token: string }) {
                 className="text-xs mt-1"
                 style={{ color: "var(--text-muted)" }}
               >
-                Go to <strong>AI Insights</strong> tab and say{" "}
+                Go to <strong>AI Assistant</strong> tab and say{" "}
                 <em>"I want to learn [skill]"</em> — your AI mentor will guide
                 you with questions and build a personalized roadmap before you
                 submit.
