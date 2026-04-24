@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NavPage } from "./Sidebar";
+import manSmiling from "../../assets/man-smiling.png";
 
 interface NotificationItem {
   id: number;
@@ -73,6 +74,19 @@ export default function TopBar({
 }: TopBarProps) {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showUserMenu]);
   const canViewReports = ["manager", "hr", "cfo"].includes(
     role.toLowerCase(),
   );
@@ -476,39 +490,92 @@ export default function TopBar({
               )}
             </div>
 
-            {/* User / logout button */}
-            <button
-              onClick={onLogout}
-              title={`Logout${userName ? ` (${userName})` : ""}`}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--muted)",
-              }}
-            >
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-                <path
-                  d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
+            {/* User menu */}
+            <div ref={userMenuRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setShowUserMenu((v) => !v)}
+                title={userName || "Account"}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  border: "2px solid var(--primary)",
+                  background: "transparent",
+                  cursor: "pointer",
+                  padding: 0,
+                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <img
+                  src={manSmiling}
+                  alt="User"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
-                <circle
-                  cx="12"
-                  cy="7"
-                  r="4"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                />
-              </svg>
-            </button>
+              </button>
+
+              {showUserMenu && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    right: 0,
+                    minWidth: 180,
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+                    zIndex: 9999,
+                    overflow: "hidden",
+                  }}
+                >
+                  {userName && (
+                    <div
+                      style={{
+                        padding: "10px 14px",
+                        borderBottom: "1px solid var(--border)",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--text)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {userName}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setShowUserMenu(false); onLogout?.(); }}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontSize: 13,
+                      color: "#e74c3c",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontWeight: 500,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(231,76,60,0.08)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <polyline points="16 17 21 12 16 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
