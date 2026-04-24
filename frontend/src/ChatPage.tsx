@@ -1,15 +1,23 @@
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  KeyboardEvent,
-} from "react";
+import React, { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
 import {
   sendMessage,
@@ -67,7 +75,12 @@ const DEFAULT_SUGGESTIONS = [
 
 function getContextSuggestions(lastReply: string): string[] {
   const r = lastReply.toLowerCase();
-  if (r.includes("leave balance") || r.includes("casual leave") || r.includes("sick leave") || r.includes("earned leave")) {
+  if (
+    r.includes("leave balance") ||
+    r.includes("casual leave") ||
+    r.includes("sick leave") ||
+    r.includes("earned leave")
+  ) {
     return [
       "Apply CL for tomorrow",
       "Apply half-day leave for today",
@@ -76,7 +89,12 @@ function getContextSuggestions(lastReply: string): string[] {
       "Apply earned leave for next week",
     ];
   }
-  if (r.includes("applied") || r.includes("application") || r.includes("submitted") || r.includes("request")) {
+  if (
+    r.includes("applied") ||
+    r.includes("application") ||
+    r.includes("submitted") ||
+    r.includes("request")
+  ) {
     return [
       "Show my pending leave requests",
       "Cancel my last leave request",
@@ -94,7 +112,13 @@ function getContextSuggestions(lastReply: string): string[] {
       "What are my upcoming leaves?",
     ];
   }
-  if (r.includes("attendance") || r.includes("check-in") || r.includes("check-out") || r.includes("present") || r.includes("absent")) {
+  if (
+    r.includes("attendance") ||
+    r.includes("check-in") ||
+    r.includes("check-out") ||
+    r.includes("present") ||
+    r.includes("absent")
+  ) {
     return [
       "Show my attendance this month",
       "How many days was I absent?",
@@ -103,7 +127,12 @@ function getContextSuggestions(lastReply: string): string[] {
       "What is my leave balance?",
     ];
   }
-  if (r.includes("payroll") || r.includes("salary") || r.includes("payslip") || r.includes("ctc")) {
+  if (
+    r.includes("payroll") ||
+    r.includes("salary") ||
+    r.includes("payslip") ||
+    r.includes("ctc")
+  ) {
     return [
       "Show my latest payslip",
       "What is my CTC breakdown?",
@@ -112,7 +141,12 @@ function getContextSuggestions(lastReply: string): string[] {
       "Download my payslip",
     ];
   }
-  if (r.includes("performance") || r.includes("rating") || r.includes("review") || r.includes("goal")) {
+  if (
+    r.includes("performance") ||
+    r.includes("rating") ||
+    r.includes("review") ||
+    r.includes("goal")
+  ) {
     return [
       "Show my performance rating",
       "What are my pending goals?",
@@ -121,7 +155,12 @@ function getContextSuggestions(lastReply: string): string[] {
       "Add a performance note",
     ];
   }
-  if (r.includes("burnout") || r.includes("workload") || r.includes("overtime") || r.includes("stress")) {
+  if (
+    r.includes("burnout") ||
+    r.includes("workload") ||
+    r.includes("overtime") ||
+    r.includes("stress")
+  ) {
     return [
       "Show burnout risk for my team",
       "Who is at high risk?",
@@ -130,7 +169,12 @@ function getContextSuggestions(lastReply: string): string[] {
       "Schedule a 1:1 meeting",
     ];
   }
-  if (r.includes("team") || r.includes("direct report") || r.includes("reportee") || r.includes("manager")) {
+  if (
+    r.includes("team") ||
+    r.includes("direct report") ||
+    r.includes("reportee") ||
+    r.includes("manager")
+  ) {
     return [
       "Show team leave summary",
       "Who is on leave today?",
@@ -154,39 +198,91 @@ function buildCTAs(metadata: Record<string, unknown>): NotificationCTA[] {
   // ── Manager action CTAs ──────────────────────────────────────────────────
   if (actionRequired) {
     if (leaveId) {
-      ctas.push({ label: "✓ Approve", action: `Approve leave #${leaveId}`, style: "primary" });
-      ctas.push({ label: "✗ Reject", action: `Reject leave #${leaveId}`, style: "danger" });
+      ctas.push({
+        label: "✓ Approve",
+        action: `Approve leave #${leaveId}`,
+        style: "primary",
+      });
+      ctas.push({
+        label: "✗ Reject",
+        action: `Reject leave #${leaveId}`,
+        style: "danger",
+      });
     }
     if (compOffId) {
-      ctas.push({ label: "✓ Approve Comp Off", action: `Approve comp off #${compOffId}`, style: "primary" });
-      ctas.push({ label: "✗ Reject", action: `Reject comp off #${compOffId}`, style: "danger" });
+      ctas.push({
+        label: "✓ Approve Comp Off",
+        action: `Approve comp off #${compOffId}`,
+        style: "primary",
+      });
+      ctas.push({
+        label: "✗ Reject",
+        action: `Reject comp off #${compOffId}`,
+        style: "danger",
+      });
     }
     if (regularizationId) {
-      ctas.push({ label: "✓ Approve", action: `Approve regularization #${regularizationId}`, style: "primary" });
-      ctas.push({ label: "✗ Reject", action: `Reject regularization #${regularizationId}`, style: "danger" });
+      ctas.push({
+        label: "✓ Approve",
+        action: `Approve regularization #${regularizationId}`,
+        style: "primary",
+      });
+      ctas.push({
+        label: "✗ Reject",
+        action: `Reject regularization #${regularizationId}`,
+        style: "danger",
+      });
     }
     if (wfhId) {
-      ctas.push({ label: "✓ Approve WFH", action: `Approve WFH #${wfhId}`, style: "primary" });
-      ctas.push({ label: "✗ Reject", action: `Reject WFH #${wfhId}`, style: "danger" });
+      ctas.push({
+        label: "✓ Approve WFH",
+        action: `Approve WFH #${wfhId}`,
+        style: "primary",
+      });
+      ctas.push({
+        label: "✗ Reject",
+        action: `Reject WFH #${wfhId}`,
+        style: "danger",
+      });
     }
   }
 
   // ── Employee-facing status CTAs ──────────────────────────────────────────
   if (!actionRequired) {
     if (leaveId) {
-      ctas.push({ label: "View leaves", action: "Show my leave history", style: "primary" });
+      ctas.push({
+        label: "View leaves",
+        action: "Show my leave history",
+        style: "primary",
+      });
       if (!status || status === "PENDING") {
-        ctas.push({ label: "Remind manager", action: `__renotify_leave_${leaveId}`, style: "primary" });
+        ctas.push({
+          label: "Remind manager",
+          action: `__renotify_leave_${leaveId}`,
+          style: "primary",
+        });
       }
     }
     if (regularizationId) {
-      ctas.push({ label: "View regularizations", action: "Show my regularization requests", style: "primary" });
+      ctas.push({
+        label: "View regularizations",
+        action: "Show my regularization requests",
+        style: "primary",
+      });
     }
     if (wfhId) {
-      ctas.push({ label: "View WFH requests", action: "Show my WFH requests", style: "primary" });
+      ctas.push({
+        label: "View WFH requests",
+        action: "Show my WFH requests",
+        style: "primary",
+      });
     }
     if (compOffId && status === "APPROVED") {
-      ctas.push({ label: "View comp off balance", action: "What is my comp off balance?", style: "primary" });
+      ctas.push({
+        label: "View comp off balance",
+        action: "What is my comp off balance?",
+        style: "primary",
+      });
     }
   }
   return ctas;
@@ -202,19 +298,39 @@ interface ChartSpec {
   yKeys: string[];
 }
 
-const CHART_COLORS = ["#E8D44D", "#111111", "#34D399", "#F87171", "#60A5FA", "#A78BFA"];
+const CHART_COLORS = [
+  "#E8D44D",
+  "#111111",
+  "#34D399",
+  "#F87171",
+  "#60A5FA",
+  "#A78BFA",
+];
 
 function ChartBlock({ spec }: { spec: ChartSpec }) {
   const { type, title, data, xKey, yKeys } = spec;
   return (
     <div className="my-3">
       {title && (
-        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-dark)" }}>{title}</p>
+        <p
+          className="text-xs font-semibold mb-2"
+          style={{ color: "var(--text-dark)" }}
+        >
+          {title}
+        </p>
       )}
       <ResponsiveContainer width="100%" height={240}>
         {type === "pie" ? (
           <PieChart>
-            <Pie data={data} dataKey={yKeys[0] || "value"} nameKey={xKey} cx="50%" cy="50%" outerRadius={90} label>
+            <Pie
+              data={data}
+              dataKey={yKeys[0] || "value"}
+              nameKey={xKey}
+              cx="50%"
+              cy="50%"
+              outerRadius={90}
+              label
+            >
               {data.map((_, i) => (
                 <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
               ))}
@@ -230,7 +346,14 @@ function ChartBlock({ spec }: { spec: ChartSpec }) {
             <Tooltip />
             <Legend />
             {yKeys.map((k, i) => (
-              <Line key={k} type="monotone" dataKey={k} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} />
+              <Line
+                key={k}
+                type="monotone"
+                dataKey={k}
+                stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                strokeWidth={2}
+                dot={false}
+              />
             ))}
           </LineChart>
         ) : type === "area" ? (
@@ -241,7 +364,14 @@ function ChartBlock({ spec }: { spec: ChartSpec }) {
             <Tooltip />
             <Legend />
             {yKeys.map((k, i) => (
-              <Area key={k} type="monotone" dataKey={k} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length] + "33"} strokeWidth={2} />
+              <Area
+                key={k}
+                type="monotone"
+                dataKey={k}
+                stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                fill={CHART_COLORS[i % CHART_COLORS.length] + "33"}
+                strokeWidth={2}
+              />
             ))}
           </AreaChart>
         ) : (
@@ -252,7 +382,12 @@ function ChartBlock({ spec }: { spec: ChartSpec }) {
             <Tooltip />
             <Legend />
             {yKeys.map((k, i) => (
-              <Bar key={k} dataKey={k} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[3, 3, 0, 0]} />
+              <Bar
+                key={k}
+                dataKey={k}
+                fill={CHART_COLORS[i % CHART_COLORS.length]}
+                radius={[3, 3, 0, 0]}
+              />
             ))}
           </BarChart>
         )}
@@ -317,12 +452,20 @@ function getInitials(name: string): string {
 function useClock(): string {
   const [time, setTime] = useState(() => {
     const now = new Date();
-    return now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return now.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   });
   useEffect(() => {
     const id = setInterval(() => {
       const now = new Date();
-      setTime(now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }));
+      setTime(
+        now.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
     }, 10000);
     return () => clearInterval(id);
   }, []);
@@ -336,23 +479,42 @@ const MD_COMPONENTS = {
     </div>
   ),
   th: ({ children }: { children?: React.ReactNode }) => (
-    <th className="text-left px-3 py-2 text-xs font-semibold whitespace-nowrap"
-      style={{ background: "var(--primary-pale)", borderBottom: "1px solid var(--card-border)", color: "var(--text-dark)" }}>
+    <th
+      className="text-left px-3 py-2 text-xs font-semibold whitespace-nowrap"
+      style={{
+        background: "var(--primary-pale)",
+        borderBottom: "1px solid var(--card-border)",
+        color: "var(--text-dark)",
+      }}
+    >
       {children}
     </th>
   ),
   td: ({ children }: { children?: React.ReactNode }) => (
-    <td className="px-3 py-2 text-xs align-top"
-      style={{ borderBottom: "1px solid var(--card-border)", color: "var(--text-dark)" }}>
+    <td
+      className="px-3 py-2 text-xs align-top"
+      style={{
+        borderBottom: "1px solid var(--card-border)",
+        color: "var(--text-dark)",
+      }}
+    >
       {children}
     </td>
   ),
   tr: ({ children }: { children?: React.ReactNode }) => (
-    <tr className="transition-colors" style={{ }}>{children}</tr>
+    <tr className="transition-colors" style={{}}>
+      {children}
+    </tr>
   ),
 };
 
-function CtaButtons({ buttons, onSelect }: { buttons: string[]; onSelect: (b: string) => void }) {
+function CtaButtons({
+  buttons,
+  onSelect,
+}: {
+  buttons: string[];
+  onSelect: (b: string) => void;
+}) {
   return (
     <div className="flex flex-wrap gap-2 mt-3">
       {buttons.map((b, i) => {
@@ -364,9 +526,21 @@ function CtaButtons({ buttons, onSelect }: { buttons: string[]; onSelect: (b: st
             onClick={() => onSelect(b)}
             className="text-xs font-semibold px-4 py-2 rounded-xl border transition-all hover:scale-105 active:scale-95"
             style={{
-              background: isSubmit ? "var(--primary)" : isDanger ? "transparent" : "var(--primary-pale)",
-              color: isSubmit ? "white" : isDanger ? "#FF6B6B" : "var(--primary)",
-              borderColor: isDanger ? "#FF6B6B" : isSubmit ? "var(--primary)" : "transparent",
+              background: isSubmit
+                ? "var(--primary)"
+                : isDanger
+                  ? "transparent"
+                  : "var(--primary-pale)",
+              color: isSubmit
+                ? "white"
+                : isDanger
+                  ? "#FF6B6B"
+                  : "var(--primary)",
+              borderColor: isDanger
+                ? "#FF6B6B"
+                : isSubmit
+                  ? "var(--primary)"
+                  : "transparent",
             }}
           >
             {b}
@@ -377,20 +551,41 @@ function CtaButtons({ buttons, onSelect }: { buttons: string[]; onSelect: (b: st
   );
 }
 
-function AssistantContent({ content, onCta, hideCtas }: { content: string; onCta?: (text: string) => void; hideCtas?: boolean }) {
+function AssistantContent({
+  content,
+  onCta,
+  hideCtas,
+}: {
+  content: string;
+  onCta?: (text: string) => void;
+  hideCtas?: boolean;
+}) {
   const parts = parseMessageParts(content);
   return (
-    <div className="prose prose-sm max-w-none overflow-x-auto" style={{ color: "var(--text-dark)" }}>
+    <div
+      className="prose prose-sm max-w-none overflow-x-auto"
+      style={{ color: "var(--text-dark)" }}
+    >
       {parts.map((part, i) =>
         part.kind === "chart" ? (
           <ChartBlock key={i} spec={part.spec} />
         ) : part.kind === "cta" ? (
-          hideCtas ? null : <CtaButtons key={i} buttons={part.buttons} onSelect={b => onCta?.(b)} />
+          hideCtas ? null : (
+            <CtaButtons
+              key={i}
+              buttons={part.buttons}
+              onSelect={(b) => onCta?.(b)}
+            />
+          )
         ) : (
-          <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={MD_COMPONENTS as never}>
+          <ReactMarkdown
+            key={i}
+            remarkPlugins={[remarkGfm]}
+            components={MD_COMPONENTS as never}
+          >
             {part.text}
           </ReactMarkdown>
-        )
+        ),
       )}
     </div>
   );
@@ -512,32 +707,43 @@ function getRandomQuote(): string {
 }
 
 const STEP_STATUS: Record<string, { color: string; label: string }> = {
-  PENDING:     { color: "#D1D5DB", label: "Pending" },
+  PENDING: { color: "#D1D5DB", label: "Pending" },
   IN_PROGRESS: { color: "#3B82F6", label: "In Progress" },
-  SUBMITTED:   { color: "#8B5CF6", label: "Submitted" },
-  APPROVED:    { color: "#10B981", label: "Approved" },
-  REJECTED:    { color: "#EF4444", label: "Rejected" },
+  SUBMITTED: { color: "#8B5CF6", label: "Submitted" },
+  APPROVED: { color: "#10B981", label: "Approved" },
+  REJECTED: { color: "#EF4444", label: "Rejected" },
 };
 
 const ROADMAP_STATUS: Record<string, { bg: string; color: string }> = {
   PENDING_APPROVAL: { bg: "#FEF3C720", color: "#92400E" },
-  IN_PROGRESS:      { bg: "#DBEAFE20", color: "#1E40AF" },
-  COMPLETED:        { bg: "#D1FAE520", color: "#065F46" },
-  REJECTED:         { bg: "#FEE2E220", color: "#991B1B" },
+  IN_PROGRESS: { bg: "#DBEAFE20", color: "#1E40AF" },
+  COMPLETED: { bg: "#D1FAE520", color: "#065F46" },
+  REJECTED: { bg: "#FEE2E220", color: "#991B1B" },
 };
 
-const PHASE_COLORS: Record<string, { bg: string; color: string; icon: string }> = {
-  "Foundation":             { bg: "#FEF3C7", color: "#92400E", icon: "🧱" },
-  "Tactical Implementation":{ bg: "#DBEAFE", color: "#1E40AF", icon: "⚙️" },
-  "Strategic Mastery":      { bg: "#D1FAE5", color: "#065F46", icon: "🎯" },
+const PHASE_COLORS: Record<
+  string,
+  { bg: string; color: string; icon: string }
+> = {
+  Foundation: { bg: "#FEF3C7", color: "#92400E", icon: "🧱" },
+  "Tactical Implementation": { bg: "#DBEAFE", color: "#1E40AF", icon: "⚙️" },
+  "Strategic Mastery": { bg: "#D1FAE5", color: "#065F46", icon: "🎯" },
 };
 
-function DraftRoadmapChatCard({ draft, onAction }: { draft: any; onAction: (text: string) => void }) {
+function DraftRoadmapChatCard({
+  draft,
+  onAction,
+}: {
+  draft: any;
+  onAction: (text: string) => void;
+}) {
   const [modMode, setModMode] = useState(false);
   const [modText, setModText] = useState("");
 
   const steps: any[] = draft.steps ?? [];
-  const phases = Array.from(new Set(steps.map((s: any) => s.phase).filter(Boolean)));
+  const phases = Array.from(
+    new Set(steps.map((s: any) => s.phase).filter(Boolean)),
+  );
   const draftId = draft.draft_id;
   const skillName = draft.skill_name;
 
@@ -555,23 +761,55 @@ function DraftRoadmapChatCard({ draft, onAction }: { draft: any; onAction: (text
   }
 
   return (
-    <div className="mt-3 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)" }}>
+    <div
+      className="mt-3 rounded-2xl overflow-hidden"
+      style={{
+        border: "1px solid var(--card-border)",
+        background: "var(--card-bg)",
+      }}
+    >
       {/* Header */}
-      <div className="px-4 py-3" style={{ background: "linear-gradient(135deg, var(--primary-pale) 0%, #fff 100%)", borderBottom: "1px solid var(--card-border)" }}>
+      <div
+        className="px-4 py-3"
+        style={{
+          background:
+            "linear-gradient(135deg, var(--primary-pale) 0%, #fff 100%)",
+          borderBottom: "1px solid var(--card-border)",
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">📋</span>
             <div>
-              <p className="text-sm font-bold" style={{ color: "var(--text-dark)" }}>{skillName} Roadmap</p>
-              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Draft · {steps.length} milestones · Review before submitting</p>
+              <p
+                className="text-sm font-bold"
+                style={{ color: "var(--text-dark)" }}
+              >
+                {skillName} Roadmap
+              </p>
+              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                Draft · {steps.length} milestones · Review before submitting
+              </p>
             </div>
           </div>
-          <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D40" }}>
+          <span
+            className="text-[10px] font-bold px-2 py-1 rounded-full"
+            style={{
+              background: "#FEF3C7",
+              color: "#92400E",
+              border: "1px solid #FCD34D40",
+            }}
+          >
             DRAFT
           </span>
         </div>
         {draft.description && (
-          <p className="mt-2 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>{draft.description}</p>
+          <p
+            className="mt-2 text-[11px] leading-relaxed"
+            style={{ color: "var(--text-muted)" }}
+          >
+            {draft.description}
+          </p>
         )}
       </div>
 
@@ -580,37 +818,83 @@ function DraftRoadmapChatCard({ draft, onAction }: { draft: any; onAction: (text
         {phases.length > 0
           ? phases.map((phase) => {
               const phaseSteps = steps.filter((s: any) => s.phase === phase);
-              const pc = PHASE_COLORS[phase] ?? { bg: "#F3F4F6", color: "#6B7280", icon: "📌" };
+              const pc = PHASE_COLORS[phase] ?? {
+                bg: "#F3F4F6",
+                color: "#6B7280",
+                icon: "📌",
+              };
               return (
                 <div key={phase}>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <span className="text-xs">{pc.icon}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: pc.color }}>{phase}</span>
-                    <div className="flex-1 h-px" style={{ background: pc.color + "30" }} />
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-wide"
+                      style={{ color: pc.color }}
+                    >
+                      {phase}
+                    </span>
+                    <div
+                      className="flex-1 h-px"
+                      style={{ background: pc.color + "30" }}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     {phaseSteps.map((step: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: pc.bg + "60", border: `1px solid ${pc.color}20` }}>
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                          style={{ background: pc.color + "20", color: pc.color }}>
+                      <div
+                        key={idx}
+                        className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                        style={{
+                          background: pc.bg + "60",
+                          border: `1px solid ${pc.color}20`,
+                        }}
+                      >
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                          style={{
+                            background: pc.color + "20",
+                            color: pc.color,
+                          }}
+                        >
                           {steps.indexOf(step) + 1}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold truncate" style={{ color: "var(--text-dark)" }}>{step.title}</p>
+                          <p
+                            className="text-xs font-semibold truncate"
+                            style={{ color: "var(--text-dark)" }}
+                          >
+                            {step.title}
+                          </p>
                           <div className="flex items-center gap-2 mt-0.5">
                             {step.difficulty && (
-                              <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>{step.difficulty}</span>
+                              <span
+                                className="text-[9px]"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                {step.difficulty}
+                              </span>
                             )}
                             {step.duration && (
-                              <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>· {step.duration}h</span>
+                              <span
+                                className="text-[9px]"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                · {step.duration}h
+                              </span>
                             )}
                           </div>
                         </div>
                         {step.resource_url && (
-                          <a href={step.resource_url} target="_blank" rel="noopener noreferrer"
+                          <a
+                            href={step.resource_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-110"
-                            style={{ background: "var(--primary)", color: "white" }}
-                            title="Watch resource">
+                            style={{
+                              background: "var(--primary)",
+                              color: "white",
+                            }}
+                            title="Watch resource"
+                          >
                             <span className="text-[10px]">▶</span>
                           </a>
                         )}
@@ -621,47 +905,99 @@ function DraftRoadmapChatCard({ draft, onAction }: { draft: any; onAction: (text
               );
             })
           : steps.map((step: any, idx: number) => (
-              <div key={idx} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
-                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                  style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+              <div
+                key={idx}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                style={{
+                  background: "var(--page-bg)",
+                  border: "1px solid var(--card-border)",
+                }}
+              >
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                  style={{
+                    background: "var(--primary-pale)",
+                    color: "var(--primary)",
+                  }}
+                >
                   {idx + 1}
                 </div>
-                <p className="flex-1 text-xs font-medium truncate" style={{ color: "var(--text-dark)" }}>{step.title}</p>
+                <p
+                  className="flex-1 text-xs font-medium truncate"
+                  style={{ color: "var(--text-dark)" }}
+                >
+                  {step.title}
+                </p>
                 {step.resource_url && (
-                  <a href={step.resource_url} target="_blank" rel="noopener noreferrer"
+                  <a
+                    href={step.resource_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: "var(--primary)", color: "white" }}>
+                    style={{ background: "var(--primary)", color: "white" }}
+                  >
                     <span className="text-[10px]">▶</span>
                   </a>
                 )}
               </div>
-            ))
-        }
+            ))}
       </div>
 
       {/* Modification input */}
       {modMode && (
         <div className="px-4 pb-3">
-          <div className="p-3 rounded-xl" style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
-            <p className="text-[10px] font-semibold mb-2" style={{ color: "var(--text-muted)" }}>What would you like to change?</p>
+          <div
+            className="p-3 rounded-xl"
+            style={{
+              background: "var(--page-bg)",
+              border: "1px solid var(--card-border)",
+            }}
+          >
+            <p
+              className="text-[10px] font-semibold mb-2"
+              style={{ color: "var(--text-muted)" }}
+            >
+              What would you like to change?
+            </p>
             <textarea
               autoFocus
               rows={2}
               value={modText}
-              onChange={e => setModText(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleApplyMod(); } }}
+              onChange={(e) => setModText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleApplyMod();
+                }
+              }}
               placeholder="e.g. Remove strategic mastery phase, add more beginner content, focus on data analysis..."
               className="w-full text-xs px-3 py-2 rounded-xl resize-none focus:outline-none"
-              style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }}
+              style={{
+                border: "1px solid var(--card-border)",
+                background: "var(--card-bg)",
+                color: "var(--text-dark)",
+              }}
             />
             <div className="flex gap-2 mt-2">
-              <button onClick={handleApplyMod} disabled={!modText.trim()}
+              <button
+                onClick={handleApplyMod}
+                disabled={!modText.trim()}
                 className="text-xs font-semibold px-4 py-1.5 rounded-xl text-white disabled:opacity-40 transition-all"
-                style={{ background: "var(--primary-dark)" }}>
+                style={{ background: "var(--primary-dark)" }}
+              >
                 Apply Changes
               </button>
-              <button onClick={() => { setModMode(false); setModText(""); }}
-                className="text-xs px-3 py-1.5 rounded-xl" style={{ background: "var(--primary-pale)", color: "var(--text-muted)" }}>
+              <button
+                onClick={() => {
+                  setModMode(false);
+                  setModText("");
+                }}
+                className="text-xs px-3 py-1.5 rounded-xl"
+                style={{
+                  background: "var(--primary-pale)",
+                  color: "var(--text-muted)",
+                }}
+              >
                 Cancel
               </button>
             </div>
@@ -670,20 +1006,36 @@ function DraftRoadmapChatCard({ draft, onAction }: { draft: any; onAction: (text
       )}
 
       {/* CTAs */}
-      <div className="px-4 pb-4 pt-1 flex flex-wrap gap-2" style={{ borderTop: "1px solid var(--card-border)" }}>
-        <button onClick={handleSubmit}
+      <div
+        className="px-4 pb-4 pt-1 flex flex-wrap gap-2"
+        style={{ borderTop: "1px solid var(--card-border)" }}
+      >
+        <button
+          onClick={handleSubmit}
           className="text-xs font-bold px-4 py-2 rounded-xl text-white transition-all flex items-center gap-1.5"
-          style={{ background: "var(--primary-dark)" }}>
+          style={{ background: "var(--primary-dark)" }}
+        >
           <span>✓</span> Submit to Manager
         </button>
-        <button onClick={() => { setModMode(m => !m); setModText(""); }}
+        <button
+          onClick={() => {
+            setModMode((m) => !m);
+            setModText("");
+          }}
           className="text-xs font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5"
-          style={{ background: "var(--primary-pale)", color: "var(--primary-dark)", border: "1px solid var(--primary-dark)30" }}>
+          style={{
+            background: "var(--primary-pale)",
+            color: "var(--primary-dark)",
+            border: "1px solid var(--primary-dark)30",
+          }}
+        >
           <span>✏️</span> I want changes
         </button>
-        <button onClick={handleStartOver}
+        <button
+          onClick={handleStartOver}
           className="text-xs font-semibold px-4 py-2 rounded-xl bg-red-50 text-red-600 transition-all flex items-center gap-1.5"
-          style={{ border: "1px solid #FCA5A540" }}>
+          style={{ border: "1px solid #FCA5A540" }}
+        >
           <span>✕</span> Start Over
         </button>
       </div>
@@ -691,7 +1043,13 @@ function DraftRoadmapChatCard({ draft, onAction }: { draft: any; onAction: (text
   );
 }
 
-function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
+function RoadmapChatCard({
+  roadmap,
+  role,
+  token,
+  onAction,
+  employeeId,
+}: {
   roadmap: any;
   role: string;
   token: string;
@@ -699,93 +1057,160 @@ function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
   employeeId?: number;
 }) {
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
-  const [proofData, setProofData] = useState<Record<number, { url: string; notes: string }>>({});
+  const [proofData, setProofData] = useState<
+    Record<number, { url: string; notes: string }>
+  >({});
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Record<number, string>>({});
   const [localStatus, setLocalStatus] = useState<Record<number, string>>({});
-  const [localRoadmapStatus, setLocalRoadmapStatus] = useState<string>(roadmap.status);
-  const [managerAction, setManagerAction] = useState<{ stepId: number; type: "approve" | "reject" } | null>(null);
+  const [localRoadmapStatus, setLocalRoadmapStatus] = useState<string>(
+    roadmap.status,
+  );
+  const [managerAction, setManagerAction] = useState<{
+    stepId: number;
+    type: "approve" | "reject";
+  } | null>(null);
   const [actionError, setActionError] = useState("");
 
   const isManagerRole = ["manager", "hr", "cfo", "admin"].includes(role);
   // Only act as manager for OTHER people's roadmaps, not your own.
   // If employee_id absent from roadmap data, assume own roadmap (safe default).
-  const isOwnRoadmap = roadmap.employee_id == null
-    ? true
-    : employeeId != null && roadmap.employee_id === employeeId;
+  const isOwnRoadmap =
+    roadmap.employee_id == null
+      ? true
+      : employeeId != null && roadmap.employee_id === employeeId;
   const isManager = isManagerRole && !isOwnRoadmap;
-  const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8002/api";
+  const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
 
   const steps = roadmap.steps ?? [];
   const completed = steps.filter((s: any) => s.is_completed).length;
-  const pct = steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0;
-  const rStyle = ROADMAP_STATUS[localRoadmapStatus] ?? { bg: "#F3F4F620", color: "#6B7280" };
+  const pct =
+    steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0;
+  const rStyle = ROADMAP_STATUS[localRoadmapStatus] ?? {
+    bg: "#F3F4F620",
+    color: "#6B7280",
+  };
 
   async function submitProof(stepId: number) {
     const d = proofData[stepId] ?? { url: "", notes: "" };
-    if (!d.url) { setActionError("Evidence URL required"); return; }
+    if (!d.url) {
+      setActionError("Evidence URL required");
+      return;
+    }
     setSubmitting(stepId);
     setActionError("");
     try {
       const res = await fetch(`${BASE}/upskilling/steps/${stepId}/submit/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ url: d.url, notes: d.notes }),
       });
       const data = await res.json();
-      if (data.error) { setActionError(data.error); }
-      else {
-        setLocalStatus(prev => ({ ...prev, [stepId]: "SUBMITTED" }));
+      if (data.error) {
+        setActionError(data.error);
+      } else {
+        setLocalStatus((prev) => ({ ...prev, [stepId]: "SUBMITTED" }));
         setExpandedStep(null);
       }
-    } finally { setSubmitting(null); }
+    } finally {
+      setSubmitting(null);
+    }
   }
 
-  async function handleManagerStepAction(stepId: number, action: "approve" | "reject") {
+  async function handleManagerStepAction(
+    stepId: number,
+    action: "approve" | "reject",
+  ) {
     const fb = feedback[stepId] ?? "";
-    if (action === "reject" && !fb.trim()) { setActionError("Feedback required for rejection"); return; }
+    if (action === "reject" && !fb.trim()) {
+      setActionError("Feedback required for rejection");
+      return;
+    }
     setSubmitting(stepId);
     setActionError("");
     try {
       const res = await fetch(`${BASE}/upskilling/steps/${stepId}/${action}/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ feedback: fb || "Excellent work!" }),
       });
       const data = await res.json();
-      if (data.error) { setActionError(data.error); }
-      else {
-        setLocalStatus(prev => ({ ...prev, [stepId]: action === "approve" ? "APPROVED" : "REJECTED" }));
+      if (data.error) {
+        setActionError(data.error);
+      } else {
+        setLocalStatus((prev) => ({
+          ...prev,
+          [stepId]: action === "approve" ? "APPROVED" : "REJECTED",
+        }));
         setManagerAction(null);
       }
-    } finally { setSubmitting(null); }
+    } finally {
+      setSubmitting(null);
+    }
   }
 
   async function handleRoadmapApprove() {
-    const res = await fetch(`${BASE}/upskilling/roadmaps/${roadmap.id}/approve/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(
+      `${BASE}/upskilling/roadmaps/${roadmap.id}/approve/`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
     const data = await res.json();
     if (!data.error) setLocalRoadmapStatus("IN_PROGRESS");
   }
 
   return (
-    <div className="mt-3 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)" }}>
+    <div
+      className="mt-3 rounded-2xl overflow-hidden"
+      style={{
+        border: "1px solid var(--card-border)",
+        background: "var(--card-bg)",
+      }}
+    >
       {/* Header */}
-      <div className="px-4 py-3" style={{ background: rStyle.bg, borderBottom: "1px solid var(--card-border)" }}>
+      <div
+        className="px-4 py-3"
+        style={{
+          background: rStyle.bg,
+          borderBottom: "1px solid var(--card-border)",
+        }}
+      >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-base">🚀</span>
             <div className="min-w-0">
-              <p className="text-xs font-bold truncate" style={{ color: "var(--text-dark)" }}>{roadmap.skill_name}</p>
+              <p
+                className="text-xs font-bold truncate"
+                style={{ color: "var(--text-dark)" }}
+              >
+                {roadmap.skill_name}
+              </p>
               {roadmap.employee_name && isManager && (
-                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{roadmap.employee_name}</p>
+                <p
+                  className="text-[10px]"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {roadmap.employee_name}
+                </p>
               )}
             </div>
           </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap"
-            style={{ background: rStyle.bg, color: rStyle.color, border: `1px solid ${rStyle.color}40` }}>
+          <span
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap"
+            style={{
+              background: rStyle.bg,
+              color: rStyle.color,
+              border: `1px solid ${rStyle.color}40`,
+            }}
+          >
             {localRoadmapStatus.replace(/_/g, " ")}
           </span>
         </div>
@@ -794,9 +1219,15 @@ function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
         {steps.length > 0 && (
           <div className="mt-2 flex items-center gap-2">
             <div className="flex-1 h-1.5 rounded-full bg-black/10 overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: rStyle.color }} />
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${pct}%`, background: rStyle.color }}
+              />
             </div>
-            <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: rStyle.color }}>
+            <span
+              className="text-[10px] font-semibold flex-shrink-0"
+              style={{ color: rStyle.color }}
+            >
               {completed}/{steps.length}
             </span>
           </div>
@@ -805,13 +1236,17 @@ function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
         {/* Manager: approve pending roadmap */}
         {isManager && localRoadmapStatus === "PENDING_APPROVAL" && (
           <div className="flex gap-2 mt-3">
-            <button onClick={handleRoadmapApprove}
+            <button
+              onClick={handleRoadmapApprove}
               className="text-[11px] font-semibold px-3 py-1.5 rounded-xl text-white transition-all"
-              style={{ background: "var(--primary)" }}>
+              style={{ background: "var(--primary)" }}
+            >
               ✓ Approve Roadmap
             </button>
-            <button onClick={() => onAction(`Reject roadmap #${roadmap.id}`)}
-              className="text-[11px] font-semibold px-3 py-1.5 rounded-xl bg-red-100 text-red-700 transition-all">
+            <button
+              onClick={() => onAction(`Reject roadmap #${roadmap.id}`)}
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-xl bg-red-100 text-red-700 transition-all"
+            >
               ✗ Reject
             </button>
           </div>
@@ -824,7 +1259,10 @@ function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
           {steps.map((step: any, idx: number) => {
             const effectiveStatus = localStatus[step.id] ?? step.status;
             const ss = STEP_STATUS[effectiveStatus] ?? STEP_STATUS.PENDING;
-            const canSubmit = !isManager && (effectiveStatus === "IN_PROGRESS" || effectiveStatus === "REJECTED");
+            const canSubmit =
+              !isManager &&
+              (effectiveStatus === "IN_PROGRESS" ||
+                effectiveStatus === "REJECTED");
             const canManagerAct = isManager && effectiveStatus === "SUBMITTED";
             const isExpanded = expandedStep === step.id;
             const isManagerActing = managerAction?.stepId === step.id;
@@ -834,35 +1272,77 @@ function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
                 <div className="flex items-start gap-3">
                   {/* Step indicator */}
                   <div className="flex flex-col items-center flex-shrink-0 pt-0.5">
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
-                      style={{ background: step.is_completed ? "#10B981" : ss.color + "20", color: step.is_completed ? "white" : ss.color }}>
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
+                      style={{
+                        background: step.is_completed
+                          ? "#10B981"
+                          : ss.color + "20",
+                        color: step.is_completed ? "white" : ss.color,
+                      }}
+                    >
                       {step.is_completed ? "✓" : idx + 1}
                     </div>
                     {idx < steps.length - 1 && (
-                      <div className="w-px mt-1 flex-1" style={{ minHeight: "12px", background: "var(--card-border)" }} />
+                      <div
+                        className="w-px mt-1 flex-1"
+                        style={{
+                          minHeight: "12px",
+                          background: "var(--card-border)",
+                        }}
+                      />
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold leading-snug" style={{ color: "var(--text-dark)", textDecoration: step.is_completed ? "line-through" : "none", opacity: step.is_completed ? 0.5 : 1 }}>
+                        <p
+                          className="text-xs font-semibold leading-snug"
+                          style={{
+                            color: "var(--text-dark)",
+                            textDecoration: step.is_completed
+                              ? "line-through"
+                              : "none",
+                            opacity: step.is_completed ? 0.5 : 1,
+                          }}
+                        >
                           {step.title}
                         </p>
                         {step.phase && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full mt-0.5 inline-block" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+                          <span
+                            className="text-[9px] px-1.5 py-0.5 rounded-full mt-0.5 inline-block"
+                            style={{
+                              background: "var(--primary-pale)",
+                              color: "var(--primary)",
+                            }}
+                          >
                             {step.phase}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ss.color + "20", color: ss.color }}>
+                        <span
+                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{
+                            background: ss.color + "20",
+                            color: ss.color,
+                          }}
+                        >
                           {ss.label}
                         </span>
                         {step.resource_url && (
-                          <a href={step.resource_url} target="_blank" rel="noopener noreferrer"
-                            className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}
-                            title="Watch resource">
+                          <a
+                            href={step.resource_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                            style={{
+                              background: "var(--primary-pale)",
+                              color: "var(--primary)",
+                            }}
+                            title="Watch resource"
+                          >
                             ▶
                           </a>
                         )}
@@ -870,52 +1350,127 @@ function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
                     </div>
 
                     {/* Manager feedback on rejected step */}
-                    {step.feedback && (effectiveStatus === "REJECTED" || effectiveStatus === "APPROVED") && (
-                      <p className="text-[10px] mt-1 px-2 py-1 rounded-lg" style={{ background: effectiveStatus === "APPROVED" ? "#D1FAE5" : "#FEE2E2", color: effectiveStatus === "APPROVED" ? "#065F46" : "#991B1B" }}>
-                        {effectiveStatus === "APPROVED" ? "✓" : "✗"} {step.feedback}
-                      </p>
-                    )}
+                    {step.feedback &&
+                      (effectiveStatus === "REJECTED" ||
+                        effectiveStatus === "APPROVED") && (
+                        <p
+                          className="text-[10px] mt-1 px-2 py-1 rounded-lg"
+                          style={{
+                            background:
+                              effectiveStatus === "APPROVED"
+                                ? "#D1FAE5"
+                                : "#FEE2E2",
+                            color:
+                              effectiveStatus === "APPROVED"
+                                ? "#065F46"
+                                : "#991B1B",
+                          }}
+                        >
+                          {effectiveStatus === "APPROVED" ? "✓" : "✗"}{" "}
+                          {step.feedback}
+                        </p>
+                      )}
 
                     {/* Employee: submit proof CTA */}
                     {canSubmit && !isExpanded && (
-                      <button onClick={() => { setExpandedStep(step.id); setActionError(""); }}
+                      <button
+                        onClick={() => {
+                          setExpandedStep(step.id);
+                          setActionError("");
+                        }}
                         className="mt-2 text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-all"
-                        style={{ background: "var(--primary)", color: "white" }}>
+                        style={{ background: "var(--primary)", color: "white" }}
+                      >
                         📎 Submit Proof
                       </button>
                     )}
 
                     {/* Employee: proof submission form */}
                     {canSubmit && isExpanded && (
-                      <div className="mt-2 space-y-2 p-3 rounded-xl" style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
-                        <p className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
-                          Submit proof for: <span style={{ color: "var(--text-dark)" }}>{step.title}</span>
+                      <div
+                        className="mt-2 space-y-2 p-3 rounded-xl"
+                        style={{
+                          background: "var(--page-bg)",
+                          border: "1px solid var(--card-border)",
+                        }}
+                      >
+                        <p
+                          className="text-[10px] font-semibold"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          Submit proof for:{" "}
+                          <span style={{ color: "var(--text-dark)" }}>
+                            {step.title}
+                          </span>
                         </p>
-                        <input type="url"
+                        <input
+                          type="url"
                           placeholder="Evidence link (GitHub / Dropbox URL) *"
                           value={proofData[step.id]?.url ?? ""}
-                          onChange={e => setProofData(p => ({ ...p, [step.id]: { ...p[step.id], url: e.target.value, notes: p[step.id]?.notes ?? "" } }))}
+                          onChange={(e) =>
+                            setProofData((p) => ({
+                              ...p,
+                              [step.id]: {
+                                ...p[step.id],
+                                url: e.target.value,
+                                notes: p[step.id]?.notes ?? "",
+                              },
+                            }))
+                          }
                           className="w-full text-[11px] px-3 py-2 rounded-xl focus:outline-none"
-                          style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }}
+                          style={{
+                            border: "1px solid var(--card-border)",
+                            background: "var(--card-bg)",
+                            color: "var(--text-dark)",
+                          }}
                         />
-                        <textarea rows={2}
+                        <textarea
+                          rows={2}
                           placeholder="What did you learn? Key takeaways..."
                           value={proofData[step.id]?.notes ?? ""}
-                          onChange={e => setProofData(p => ({ ...p, [step.id]: { ...p[step.id], notes: e.target.value, url: p[step.id]?.url ?? "" } }))}
+                          onChange={(e) =>
+                            setProofData((p) => ({
+                              ...p,
+                              [step.id]: {
+                                ...p[step.id],
+                                notes: e.target.value,
+                                url: p[step.id]?.url ?? "",
+                              },
+                            }))
+                          }
                           className="w-full text-[11px] px-3 py-2 rounded-xl resize-none focus:outline-none"
-                          style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }}
+                          style={{
+                            border: "1px solid var(--card-border)",
+                            background: "var(--card-bg)",
+                            color: "var(--text-dark)",
+                          }}
                         />
-                        {actionError && <p className="text-[10px] text-red-600">{actionError}</p>}
+                        {actionError && (
+                          <p className="text-[10px] text-red-600">
+                            {actionError}
+                          </p>
+                        )}
                         <div className="flex gap-2">
-                          <button onClick={() => submitProof(step.id)}
-                            disabled={submitting === step.id || !proofData[step.id]?.url}
+                          <button
+                            onClick={() => submitProof(step.id)}
+                            disabled={
+                              submitting === step.id || !proofData[step.id]?.url
+                            }
                             className="text-[11px] font-semibold px-4 py-1.5 rounded-xl text-white disabled:opacity-50 transition-all"
-                            style={{ background: "var(--primary)" }}>
-                            {submitting === step.id ? "Submitting…" : "Submit for Review"}
+                            style={{ background: "var(--primary)" }}
+                          >
+                            {submitting === step.id
+                              ? "Submitting…"
+                              : "Submit for Review"}
                           </button>
-                          <button onClick={() => setExpandedStep(null)}
+                          <button
+                            onClick={() => setExpandedStep(null)}
                             className="text-[11px] px-3 py-1.5 rounded-xl"
-                            style={{ background: "var(--primary-pale)", color: "var(--text-muted)" }}>
+                            style={{
+                              background: "var(--primary-pale)",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             Cancel
                           </button>
                         </div>
@@ -926,17 +1481,44 @@ function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
                     {canManagerAct && !isManagerActing && (
                       <div className="flex gap-2 mt-2">
                         {step.submission_url && (
-                          <a href={step.submission_url} target="_blank" rel="noopener noreferrer"
-                            className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl" style={{ background: "var(--primary-pale)", color: "var(--primary)" }}>
+                          <a
+                            href={step.submission_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl"
+                            style={{
+                              background: "var(--primary-pale)",
+                              color: "var(--primary)",
+                            }}
+                          >
                             🔗 View Proof
                           </a>
                         )}
-                        <button onClick={() => { setManagerAction({ stepId: step.id, type: "approve" }); setFeedback(p => ({ ...p, [step.id]: "" })); setActionError(""); }}
-                          className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl text-white" style={{ background: "var(--primary)" }}>
+                        <button
+                          onClick={() => {
+                            setManagerAction({
+                              stepId: step.id,
+                              type: "approve",
+                            });
+                            setFeedback((p) => ({ ...p, [step.id]: "" }));
+                            setActionError("");
+                          }}
+                          className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl text-white"
+                          style={{ background: "var(--primary)" }}
+                        >
                           ✓ Approve
                         </button>
-                        <button onClick={() => { setManagerAction({ stepId: step.id, type: "reject" }); setFeedback(p => ({ ...p, [step.id]: "" })); setActionError(""); }}
-                          className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl bg-red-100 text-red-700">
+                        <button
+                          onClick={() => {
+                            setManagerAction({
+                              stepId: step.id,
+                              type: "reject",
+                            });
+                            setFeedback((p) => ({ ...p, [step.id]: "" }));
+                            setActionError("");
+                          }}
+                          className="text-[10px] font-semibold px-2.5 py-1.5 rounded-xl bg-red-100 text-red-700"
+                        >
                           ✗ Reject
                         </button>
                       </div>
@@ -944,29 +1526,80 @@ function RoadmapChatCard({ roadmap, role, token, onAction, employeeId }: {
 
                     {/* Manager: feedback form */}
                     {canManagerAct && isManagerActing && (
-                      <div className="mt-2 space-y-2 p-3 rounded-xl" style={{ background: "var(--page-bg)", border: "1px solid var(--card-border)" }}>
-                        <p className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
-                          {managerAction?.type === "approve" ? "✓ Approving" : "✗ Rejecting"}: <span style={{ color: "var(--text-dark)" }}>{step.title}</span>
+                      <div
+                        className="mt-2 space-y-2 p-3 rounded-xl"
+                        style={{
+                          background: "var(--page-bg)",
+                          border: "1px solid var(--card-border)",
+                        }}
+                      >
+                        <p
+                          className="text-[10px] font-semibold"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          {managerAction?.type === "approve"
+                            ? "✓ Approving"
+                            : "✗ Rejecting"}
+                          :{" "}
+                          <span style={{ color: "var(--text-dark)" }}>
+                            {step.title}
+                          </span>
                         </p>
-                        <textarea rows={2}
-                          placeholder={managerAction?.type === "approve" ? "Feedback (optional — 'Great work!')" : "Rejection reason (required)"}
+                        <textarea
+                          rows={2}
+                          placeholder={
+                            managerAction?.type === "approve"
+                              ? "Feedback (optional — 'Great work!')"
+                              : "Rejection reason (required)"
+                          }
                           value={feedback[step.id] ?? ""}
-                          onChange={e => setFeedback(p => ({ ...p, [step.id]: e.target.value }))}
+                          onChange={(e) =>
+                            setFeedback((p) => ({
+                              ...p,
+                              [step.id]: e.target.value,
+                            }))
+                          }
                           className="w-full text-[11px] px-3 py-2 rounded-xl resize-none focus:outline-none"
-                          style={{ border: "1px solid var(--card-border)", background: "var(--card-bg)", color: "var(--text-dark)" }}
+                          style={{
+                            border: "1px solid var(--card-border)",
+                            background: "var(--card-bg)",
+                            color: "var(--text-dark)",
+                          }}
                         />
-                        {actionError && <p className="text-[10px] text-red-600">{actionError}</p>}
+                        {actionError && (
+                          <p className="text-[10px] text-red-600">
+                            {actionError}
+                          </p>
+                        )}
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleManagerStepAction(step.id, managerAction!.type)}
+                            onClick={() =>
+                              handleManagerStepAction(
+                                step.id,
+                                managerAction!.type,
+                              )
+                            }
                             disabled={submitting === step.id}
                             className="text-[11px] font-semibold px-4 py-1.5 rounded-xl text-white disabled:opacity-50 transition-all"
-                            style={{ background: managerAction?.type === "approve" ? "var(--primary)" : "#EF4444" }}>
-                            {submitting === step.id ? "Saving…" : `Confirm ${managerAction?.type === "approve" ? "Approve" : "Reject"}`}
+                            style={{
+                              background:
+                                managerAction?.type === "approve"
+                                  ? "var(--primary)"
+                                  : "#EF4444",
+                            }}
+                          >
+                            {submitting === step.id
+                              ? "Saving…"
+                              : `Confirm ${managerAction?.type === "approve" ? "Approve" : "Reject"}`}
                           </button>
-                          <button onClick={() => setManagerAction(null)}
+                          <button
+                            onClick={() => setManagerAction(null)}
                             className="text-[11px] px-3 py-1.5 rounded-xl"
-                            style={{ background: "var(--primary-pale)", color: "var(--text-muted)" }}>
+                            style={{
+                              background: "var(--primary-pale)",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             Cancel
                           </button>
                         </div>
@@ -989,17 +1622,35 @@ function buildInlineCTAs(tool_results: Record<string, any>): NotificationCTA[] {
   const regData = tool_results?.get_regularization_requests;
 
   if (wfhData?.wfh_requests) {
-    const pending = wfhData.wfh_requests.filter((r: any) => r.status === "PENDING");
+    const pending = wfhData.wfh_requests.filter(
+      (r: any) => r.status === "PENDING",
+    );
     pending.forEach((r: any) => {
-      ctas.push({ label: `✓ Approve WFH #${r.id}`, action: `Approve WFH #${r.id}`, style: "primary" });
-      ctas.push({ label: `✗ Reject WFH #${r.id}`, action: `Reject WFH #${r.id}`, style: "danger" });
+      ctas.push({
+        label: `✓ Approve WFH #${r.id}`,
+        action: `Approve WFH #${r.id}`,
+        style: "primary",
+      });
+      ctas.push({
+        label: `✗ Reject WFH #${r.id}`,
+        action: `Reject WFH #${r.id}`,
+        style: "danger",
+      });
     });
   }
   if (regData?.requests) {
     const pending = regData.requests.filter((r: any) => r.status === "PENDING");
     pending.forEach((r: any) => {
-      ctas.push({ label: `✓ Approve Reg #${r.id}`, action: `Approve regularization #${r.id}`, style: "primary" });
-      ctas.push({ label: `✗ Reject Reg #${r.id}`, action: `Reject regularization #${r.id}`, style: "danger" });
+      ctas.push({
+        label: `✓ Approve Reg #${r.id}`,
+        action: `Approve regularization #${r.id}`,
+        style: "primary",
+      });
+      ctas.push({
+        label: `✗ Reject Reg #${r.id}`,
+        action: `Reject regularization #${r.id}`,
+        style: "danger",
+      });
     });
   }
   return ctas;
@@ -1019,13 +1670,17 @@ function sessionDisplayTitle(s: SessionMeta): string {
   if (s.title && s.title.trim()) return s.title.trim();
   // Fallback: formatted datetime
   const d = new Date(s.last_active_at);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+  return (
+    d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
     " \u00b7 " +
-    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+  );
 }
 
 // Group sessions by recency label
-function groupSessions(sessions: SessionMeta[]): { label: string; items: SessionMeta[] }[] {
+function groupSessions(
+  sessions: SessionMeta[],
+): { label: string; items: SessionMeta[] }[] {
   const groups: Record<string, SessionMeta[]> = {};
   sessions.forEach((s) => {
     const label = formatSessionDate(s.last_active_at);
@@ -1048,7 +1703,9 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(() => sessionStorage.getItem(SESSION_STORAGE_KEY));
+  const [sessionId, setSessionId] = useState<string | null>(() =>
+    sessionStorage.getItem(SESSION_STORAGE_KEY),
+  );
   const [collectionState, setCollectionState] = useState<CollectionState>({});
 
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -1161,7 +1818,9 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
             setUnreadCount((c) => c + 1);
           }
           seenNotifIds.current.add(data.id);
-        } catch { /* ignore parse errors */ }
+        } catch {
+          /* ignore parse errors */
+        }
       };
 
       ws.onclose = (ev) => {
@@ -1204,10 +1863,14 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
 
   function markNotificationRead(notificationId: number) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "mark_read", id: notificationId }));
+      wsRef.current.send(
+        JSON.stringify({ type: "mark_read", id: notificationId }),
+      );
     }
     // Remove bubble from chat + decrement badge
-    setMessages((prev) => prev.filter((m) => m.notificationId !== notificationId));
+    setMessages((prev) =>
+      prev.filter((m) => m.notificationId !== notificationId),
+    );
     setUnreadCount((c) => Math.max(0, c - 1));
   }
 
@@ -1223,7 +1886,13 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       if (items.length === 0) {
         setMessages((prev) => [
           ...prev,
-          { id: nextId(), role: "assistant", content: "✅ No unread notifications right now.", isNotification: true, ctas: [] },
+          {
+            id: nextId(),
+            role: "assistant",
+            content: "✅ No unread notifications right now.",
+            isNotification: true,
+            ctas: [],
+          },
         ]);
         return;
       }
@@ -1252,12 +1921,14 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       let content = "";
       switch (result.status) {
         case "re_pushed":
-          content = `🔁 **Reminder sent!** Your manager hasn't read the notification yet — we've re-sent it. `
-            + `(${result.reminders_left} reminder${result.reminders_left === 1 ? "" : "s"} remaining)`;
+          content =
+            `🔁 **Reminder sent!** Your manager hasn't read the notification yet — we've re-sent it. ` +
+            `(${result.reminders_left} reminder${result.reminders_left === 1 ? "" : "s"} remaining)`;
           break;
         case "new_reminder":
-          content = `🔁 **Reminder sent!** Your manager had seen the original notification but hasn't acted yet — a fresh reminder has been delivered. `
-            + `(${result.reminders_left} reminder${result.reminders_left === 1 ? "" : "s"} remaining)`;
+          content =
+            `🔁 **Reminder sent!** Your manager had seen the original notification but hasn't acted yet — a fresh reminder has been delivered. ` +
+            `(${result.reminders_left} reminder${result.reminders_left === 1 ? "" : "s"} remaining)`;
           break;
         case "limit_reached":
           content = `⚠️ You've already sent the maximum 3 reminders for this leave. Please contact your manager directly.`;
@@ -1273,13 +1944,24 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       }
       setMessages((prev) => [
         ...prev,
-        { id: nextId(), role: "assistant", content, isNotification: true, ctas: [] },
+        {
+          id: nextId(),
+          role: "assistant",
+          content,
+          isNotification: true,
+          ctas: [],
+        },
       ]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setMessages((prev) => [
         ...prev,
-        { id: nextId(), role: "assistant", content: `❌ Renotify failed: ${msg}`, error: true },
+        {
+          id: nextId(),
+          role: "assistant",
+          content: `❌ Renotify failed: ${msg}`,
+          error: true,
+        },
       ]);
     }
   }
@@ -1289,7 +1971,10 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
     setLoadingHistory(true);
     try {
       const token = await freshToken();
-      const backendMessages = await fetchSessionMessages(token, session.session_id);
+      const backendMessages = await fetchSessionMessages(
+        token,
+        session.session_id,
+      );
       const restored: Message[] = backendMessages.map((m) => ({
         id: nextId(),
         role: m.role,
@@ -1321,23 +2006,35 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
     if (!trimmed || loading) return;
 
     // Intercept renotify intent client-side — avoid chat round-trip
-    const renotifyPattern = /(?:re[-\s]?notify|remind)\s+(?:my\s+)?manager(?:\s+about)?(?:\s+(?:leave|request))?\s+#?(\d+)/i;
+    const renotifyPattern =
+      /(?:re[-\s]?notify|remind)\s+(?:my\s+)?manager(?:\s+about)?(?:\s+(?:leave|request))?\s+#?(\d+)/i;
     const renotifyMatch = trimmed.match(renotifyPattern);
     if (renotifyMatch) {
       const leaveId = parseInt(renotifyMatch[1], 10);
-      setMessages((prev) => [...prev, { id: nextId(), role: "user", content: trimmed }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: "user", content: trimmed },
+      ]);
       setInput("");
       await handleRenotifyLeave(leaveId);
       return;
     }
 
-    setMessages((prev) => [...prev, { id: nextId(), role: "user", content: trimmed }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: nextId(), role: "user", content: trimmed },
+    ]);
     setInput("");
     setLoading(true);
 
     try {
       const token = await freshToken();
-      const data = await sendMessage(token, trimmed, sessionId, collectionState);
+      const data = await sendMessage(
+        token,
+        trimmed,
+        sessionId,
+        collectionState,
+      );
 
       const newCS = {
         collection_stage: data.collection_stage,
@@ -1351,13 +2048,21 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       const reply = data.reply || "\u2713 Done.";
       setMessages((prev) => [
         ...prev,
-        { id: nextId(), role: "assistant" as const, content: reply, tool_results: data.tool_results },
+        {
+          id: nextId(),
+          role: "assistant" as const,
+          content: reply,
+          tool_results: data.tool_results,
+        },
       ]);
 
       // Refresh session list so new title appears
-      fetchSessions(token).then(setSessions).catch(() => { });
+      fetchSessions(token)
+        .then(setSessions)
+        .catch(() => {});
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Something went wrong";
+      const message =
+        err instanceof Error ? err.message : "Something went wrong";
       if (
         message.toLowerCase().includes("not logged in") ||
         message.toLowerCase().includes("session expired")
@@ -1368,7 +2073,12 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       }
       setMessages((prev) => [
         ...prev,
-        { id: nextId(), role: "assistant", content: `**Error:** ${message}`, error: true },
+        {
+          id: nextId(),
+          role: "assistant",
+          content: `**Error:** ${message}`,
+          error: true,
+        },
       ]);
     } finally {
       setLoading(false);
@@ -1391,7 +2101,6 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       className={`flex overflow-hidden ${embedded ? "h-full" : "h-screen"}`}
       style={{ background: "#0E1117" }}
     >
-
       {/* \u2500\u2500 Sidebar \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */}
       <aside
         className="flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden relative z-20"
@@ -1402,14 +2111,24 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         }}
       >
         {/* Brand */}
-        <div className="flex-shrink-0 px-4 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div
+          className="flex-shrink-0 px-4 pt-5 pb-4"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+        >
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black flex-shrink-0"
-              style={{ background: "var(--primary)", color: "var(--primary-dark)" }}>
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black flex-shrink-0"
+              style={{
+                background: "var(--primary)",
+                color: "var(--primary-dark)",
+              }}
+            >
               ✦
             </div>
             <div>
-              <p className="text-white text-[13px] font-bold tracking-tight leading-tight">AI Assistant</p>
+              <p className="text-white text-[13px] font-bold tracking-tight leading-tight">
+                AI Assistant
+              </p>
               <p className="text-white/30 text-[10px]">HRMS Intelligence</p>
             </div>
           </div>
@@ -1418,25 +2137,59 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
           <button
             onClick={startNewChat}
             className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
-            style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLButtonElement).style.color = "white"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.7)"; }}
+            style={{
+              background: "rgba(255,255,255,0.07)",
+              color: "rgba(255,255,255,0.7)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "rgba(255,255,255,0.12)";
+              (e.currentTarget as HTMLButtonElement).style.color = "white";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "rgba(255,255,255,0.07)";
+              (e.currentTarget as HTMLButtonElement).style.color =
+                "rgba(255,255,255,0.7)";
+            }}
           >
-            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            <svg
+              className="w-3.5 h-3.5 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             New conversation
           </button>
         </div>
 
         {/* Session list */}
-        <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+        <div
+          className="flex-1 overflow-y-auto px-3 py-3"
+          style={{
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgba(255,255,255,0.1) transparent",
+          }}
+        >
           {grouped.length === 0 ? (
-            <p className="text-[11px] px-2 py-2 text-white/25 italic">No conversations yet</p>
+            <p className="text-[11px] px-2 py-2 text-white/25 italic">
+              No conversations yet
+            </p>
           ) : (
             grouped.map(({ label, items }) => (
               <div key={label} className="mb-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-1 mb-1" style={{ color: "rgba(255,255,255,0.2)" }}>
+                <p
+                  className="text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-1 mb-1"
+                  style={{ color: "rgba(255,255,255,0.2)" }}
+                >
                   {label}
                 </p>
                 {items.map((s) => {
@@ -1446,12 +2199,36 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                       key={s.session_id}
                       onClick={() => loadSession(s)}
                       className={`w-full text-left px-3 py-2 rounded-lg text-[13px] transition-all mb-0.5 truncate leading-snug`}
-                      style={isActive
-                        ? { background: "rgba(255,255,255,0.1)", color: "white", borderLeft: "2px solid var(--primary)" }
-                        : { color: "rgba(255,255,255,0.35)", borderLeft: "2px solid transparent" }
+                      style={
+                        isActive
+                          ? {
+                              background: "rgba(255,255,255,0.1)",
+                              color: "white",
+                              borderLeft: "2px solid var(--primary)",
+                            }
+                          : {
+                              color: "rgba(255,255,255,0.35)",
+                              borderLeft: "2px solid transparent",
+                            }
                       }
-                      onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.65)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; } }}
-                      onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; } }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLButtonElement).style.color =
+                            "rgba(255,255,255,0.65)";
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.background = "rgba(255,255,255,0.05)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLButtonElement).style.color =
+                            "rgba(255,255,255,0.35)";
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.background = "transparent";
+                        }
+                      }}
                       title={sessionDisplayTitle(s)}
                     >
                       {sessionDisplayTitle(s)}
@@ -1464,17 +2241,42 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         </div>
 
         {/* Sign out */}
-        <div className="flex-shrink-0 px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div
+          className="flex-shrink-0 px-4 py-3"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+        >
           <button
-            onClick={() => { clearTokens(); navigate("/"); }}
+            onClick={() => {
+              clearTokens();
+              navigate("/");
+            }}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all"
             style={{ color: "rgba(255,255,255,0.25)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.55)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color =
+                "rgba(255,255,255,0.55)";
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "rgba(255,255,255,0.05)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color =
+                "rgba(255,255,255,0.25)";
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "transparent";
+            }}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"
+              />
             </svg>
             Sign out
           </button>
@@ -1482,8 +2284,10 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
       </aside>
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 relative z-10" style={{ background: "#FAFAFA" }}>
-
+      <div
+        className="flex flex-col flex-1 min-w-0 relative z-10"
+        style={{ background: "#FAFAFA" }}
+      >
         {!embedded && (
           <header
             className="flex items-center gap-3 px-5 py-0 flex-shrink-0"
@@ -1497,18 +2301,40 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
               onClick={() => setSidebarOpen((v) => !v)}
               className="w-8 h-8 rounded-xl flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all flex-shrink-0"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
 
             <div className="flex items-center gap-2.5 flex-shrink-0">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black border border-white/15" style={{ background: "var(--primary)", color: "var(--primary-dark)" }}>
+              <div
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black border border-white/15"
+                style={{
+                  background: "var(--primary)",
+                  color: "var(--primary-dark)",
+                }}
+              >
                 ✦
               </div>
               <div>
-                <p className="text-sm font-bold tracking-tight text-white leading-tight">AI Assistant</p>
-                {activeSession && <p className="text-[10px] text-white/40 truncate max-w-[160px]">{sessionDisplayTitle(activeSession)}</p>}
+                <p className="text-sm font-bold tracking-tight text-white leading-tight">
+                  AI Assistant
+                </p>
+                {activeSession && (
+                  <p className="text-[10px] text-white/40 truncate max-w-[160px]">
+                    {sessionDisplayTitle(activeSession)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1519,8 +2345,18 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
               className="relative flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
               title="Show unread notifications"
             >
-              <svg className="w-4 h-4 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              <svg
+                className="w-4 h-4 text-current"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
               </svg>
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
@@ -1531,9 +2367,15 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
 
             <div className="flex items-center gap-3 flex-shrink-0">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold tabular-nums text-white/80">{time}</p>
+                <p className="text-xs font-bold tabular-nums text-white/80">
+                  {time}
+                </p>
                 <p className="text-[10px] text-white/40">
-                  {new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                  {new Date().toLocaleDateString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </p>
               </div>
 
@@ -1543,10 +2385,16 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                     {getInitials(userProfile.name)}
                   </div>
                   <div className="absolute right-0 top-10 w-44 rounded-2xl p-3 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 bg-white/90 backdrop-blur-xl border border-white/80 shadow-xl">
-                    <p className="text-xs font-bold text-gray-900 truncate">{userProfile.name}</p>
-                    <p className="text-[10px] truncate mt-0.5 text-gray-500">{userProfile.title || userProfile.role}</p>
+                    <p className="text-xs font-bold text-gray-900 truncate">
+                      {userProfile.name}
+                    </p>
+                    <p className="text-[10px] truncate mt-0.5 text-gray-500">
+                      {userProfile.title || userProfile.role}
+                    </p>
                     {userProfile.department && (
-                      <p className="text-[10px] truncate text-gray-400">{userProfile.department.name}</p>
+                      <p className="text-[10px] truncate text-gray-400">
+                        {userProfile.department.name}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -1559,18 +2407,37 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
 
         {/* Embedded sidebar toggle */}
         {embedded && (
-          <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--card-border)" }}>
+          <div
+            className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+            style={{ borderBottom: "1px solid var(--card-border)" }}
+          >
             <button
               onClick={() => setSidebarOpen((v) => !v)}
               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
-              style={{ background: "var(--primary-pale)", color: "var(--primary)" }}
+              style={{
+                background: "var(--primary-pale)",
+                color: "var(--primary)",
+              }}
               title={sidebarOpen ? "Hide sessions" : "Show sessions"}
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
-            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "var(--text-muted)" }}
+            >
               {sidebarOpen ? "Hide history" : "Chat history"}
             </span>
           </div>
@@ -1586,26 +2453,52 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-8">
           <div className="space-y-4">
-
             {/* New chat welcome \u2014 quote + suggestions */}
             {messages.length === 1 && !loading && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="w-16 h-16 rounded-2xl font-black text-2xl mb-6 flex items-center justify-center" style={{ background: "var(--primary-dark)", color: "var(--primary)", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+                <div
+                  className="w-16 h-16 rounded-2xl font-black text-2xl mb-6 flex items-center justify-center"
+                  style={{
+                    background: "var(--primary-dark)",
+                    color: "var(--primary)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+                  }}
+                >
                   ✦
                 </div>
-                <p className="text-lg font-semibold max-w-sm leading-snug mb-1.5" style={{ color: "#111827" }}>
+                <p
+                  className="text-lg font-semibold max-w-sm leading-snug mb-1.5"
+                  style={{ color: "#111827" }}
+                >
                   "{quote}"
                 </p>
-                <p className="text-sm mb-8" style={{ color: "#9CA3AF" }}>What can I help you with today?</p>
+                <p className="text-sm mb-8" style={{ color: "#9CA3AF" }}>
+                  What can I help you with today?
+                </p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-md">
                   {DEFAULT_SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => submit(s)}
                       className="text-xs rounded-xl px-4 py-2.5 transition-all font-medium"
-                      style={{ background: "white", color: "#374151", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid rgba(0,0,0,0.06)" }}
-                      onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "var(--primary-dark)"; b.style.color = "white"; b.style.border = "1px solid transparent"; }}
-                      onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "white"; b.style.color = "#374151"; b.style.border = "1px solid rgba(0,0,0,0.06)"; }}
+                      style={{
+                        background: "white",
+                        color: "#374151",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                        border: "1px solid rgba(0,0,0,0.06)",
+                      }}
+                      onMouseEnter={(e) => {
+                        const b = e.currentTarget as HTMLButtonElement;
+                        b.style.background = "var(--primary-dark)";
+                        b.style.color = "white";
+                        b.style.border = "1px solid transparent";
+                      }}
+                      onMouseLeave={(e) => {
+                        const b = e.currentTarget as HTMLButtonElement;
+                        b.style.background = "white";
+                        b.style.color = "#374151";
+                        b.style.border = "1px solid rgba(0,0,0,0.06)";
+                      }}
                     >
                       {s}
                     </button>
@@ -1614,29 +2507,58 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
               </div>
             )}
 
-            {messages.map((msg) => (
+            {messages.map((msg) =>
               msg.id === 0 ? null : msg.isNotification ? (
                 /* ── Notification bubble ── */
                 <div key={msg.id} className="flex justify-start">
-                  <div className="w-7 h-7 rounded-xl flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-sm font-bold" style={{ background: "var(--primary)", color: "var(--primary-dark)" }}>
+                  <div
+                    className="w-7 h-7 rounded-xl flex items-center justify-center mr-2.5 mt-0.5 flex-shrink-0 text-sm font-bold"
+                    style={{
+                      background: "var(--primary)",
+                      color: "var(--primary-dark)",
+                    }}
+                  >
                     🔔
                   </div>
                   <div
-                    className="max-w-[78%] px-5 py-4 text-sm bg-white cursor-pointer" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)", borderRadius: "4px 16px 16px 16px" }}
-                    onClick={() => msg.notificationId && markNotificationRead(msg.notificationId)}
+                    className="max-w-[78%] px-5 py-4 text-sm bg-white cursor-pointer"
+                    style={{
+                      boxShadow:
+                        "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
+                      borderRadius: "4px 16px 16px 16px",
+                    }}
+                    onClick={() =>
+                      msg.notificationId &&
+                      markNotificationRead(msg.notificationId)
+                    }
                   >
                     <div className="prose prose-sm max-w-none text-gray-900">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.content}
+                      </ReactMarkdown>
                     </div>
                     {msg.notifMetadata && msg.notifMetadata.actioned_by_name ? (
                       <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{ background: "var(--primary)", color: "var(--primary-dark)" }}>
-                          {String(msg.notifMetadata.actioned_by_name).slice(0, 1).toUpperCase()}
+                        <span
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                          style={{
+                            background: "var(--primary)",
+                            color: "var(--primary-dark)",
+                          }}
+                        >
+                          {String(msg.notifMetadata.actioned_by_name)
+                            .slice(0, 1)
+                            .toUpperCase()}
                         </span>
                         <span>
-                          {msg.notifMetadata.status === "APPROVED" || msg.notifMetadata.status === "approved"
+                          {msg.notifMetadata.status === "APPROVED" ||
+                          msg.notifMetadata.status === "approved"
                             ? "Approved"
-                            : "Rejected"} by <span className="font-semibold text-gray-700">{String(msg.notifMetadata.actioned_by_name)}</span>
+                            : "Rejected"}{" "}
+                          by{" "}
+                          <span className="font-semibold text-gray-700">
+                            {String(msg.notifMetadata.actioned_by_name)}
+                          </span>
                         </span>
                       </div>
                     ) : null}
@@ -1646,18 +2568,24 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                           <button
                             key={cta.label}
                             onClick={() => {
-                              if (msg.notificationId) markNotificationRead(msg.notificationId);
-                              const renotifyMatch = cta.action.match(/^__renotify_leave_(\d+)$/);
+                              if (msg.notificationId)
+                                markNotificationRead(msg.notificationId);
+                              const renotifyMatch = cta.action.match(
+                                /^__renotify_leave_(\d+)$/,
+                              );
                               if (renotifyMatch) {
-                                handleRenotifyLeave(parseInt(renotifyMatch[1], 10));
+                                handleRenotifyLeave(
+                                  parseInt(renotifyMatch[1], 10),
+                                );
                                 return;
                               }
                               submit(cta.action);
                             }}
-                            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${cta.style === "danger"
-                              ? "bg-red-100 text-red-700 hover:bg-red-200"
-                              : ""
-                              }`}
+                            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${
+                              cta.style === "danger"
+                                ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                : ""
+                            }`}
                           >
                             {cta.label}
                           </button>
@@ -1666,7 +2594,9 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                           <button
                             onClick={() => {
                               markNotificationRead(msg.notificationId!);
-                              setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                              setMessages((prev) =>
+                                prev.filter((m) => m.id !== msg.id),
+                              );
                             }}
                             className="text-xs px-3 py-1.5 rounded-full transition-all text-gray-400 hover:bg-gray-100"
                           >
@@ -1677,106 +2607,177 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                     )}
                   </div>
                 </div>
-              ) : // hide the WELCOME placeholder bubble
+              ) : (
+                // hide the WELCOME placeholder bubble
                 <div
                   key={msg.id}
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   {msg.role === "assistant" && (
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center mr-2.5 mt-1 flex-shrink-0 text-[10px] font-black shadow-sm" style={{ background: "var(--primary-dark)", color: "var(--primary)" }}>
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center mr-2.5 mt-1 flex-shrink-0 text-[10px] font-black shadow-sm"
+                      style={{
+                        background: "var(--primary-dark)",
+                        color: "var(--primary)",
+                      }}
+                    >
                       ✦
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] text-sm ${msg.role === "user"
-                      ? "text-white px-4 py-3"
-                      : msg.error
-                        ? "bg-red-50 text-gray-800 border border-red-100 px-4 py-3.5"
-                        : "bg-white text-gray-800 px-5 py-4"
-                      }`}
+                    className={`max-w-[80%] text-sm ${
+                      msg.role === "user"
+                        ? "text-white px-4 py-3"
+                        : msg.error
+                          ? "bg-red-50 text-gray-800 border border-red-100 px-4 py-3.5"
+                          : "bg-white text-gray-800 px-5 py-4"
+                    }`}
                     style={{
-                      borderRadius: msg.role === "user" ? "20px 20px 6px 20px" : "6px 20px 20px 20px",
-                      background: msg.role === "user" ? "var(--primary-dark)" : msg.error ? undefined : "white",
-                      boxShadow: msg.role === "user" ? "none" : msg.error ? "none" : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
+                      borderRadius:
+                        msg.role === "user"
+                          ? "20px 20px 6px 20px"
+                          : "6px 20px 20px 20px",
+                      background:
+                        msg.role === "user"
+                          ? "var(--primary-dark)"
+                          : msg.error
+                            ? undefined
+                            : "white",
+                      boxShadow:
+                        msg.role === "user"
+                          ? "none"
+                          : msg.error
+                            ? "none"
+                            : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
                     }}
                   >
                     {msg.role === "user" ? (
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {msg.content}
+                      </p>
                     ) : (
                       <>
                         <AssistantContent
                           content={msg.content}
                           onCta={(btn) => submit(btn)}
-                          hideCtas={Boolean(msg.tool_results?.save_roadmap_draft)}
+                          hideCtas={Boolean(
+                            msg.tool_results?.save_roadmap_draft,
+                          )}
                         />
-                        {msg.tool_results && (() => {
-                          const inlineCTAs = buildInlineCTAs(msg.tool_results);
-                          const roadmapKeys = [
-                            "generate_skill_roadmap", "get_roadmap_details",
-                            "confirm_roadmap_draft",
-                            "submit_roadmap_step", "approve_roadmap_step",
-                            "reject_roadmap_step", "approve_roadmap", "reject_roadmap",
-                          ];
-                          const draftData = msg.tool_results!["save_roadmap_draft"];
-                          const hasDraft = Boolean(draftData?.draft_id && Array.isArray(draftData?.steps) && draftData.steps.length > 0);
-                          const roadmapData = roadmapKeys
-                            .map(k => msg.tool_results![k])
-                            .find(v => v?.id && v?.steps);
-                          const pendingList: any[] | undefined =
-                            msg.tool_results!["get_pending_roadmap_approvals"]?.pending_roadmaps;
-                          const roadmapListItem = msg.tool_results!["get_skill_roadmaps"]?.roadmaps?.[0];
-                          const resolvedRoadmap = roadmapData ?? (pendingList?.[0]) ?? null;
-                          return (
-                            <>
-                              {inlineCTAs.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
-                                  {inlineCTAs.map((cta) => (
-                                    <button
-                                      key={cta.label}
-                                      onClick={() => submit(cta.action)}
-                                      className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${cta.style === "danger" ? "bg-red-100 text-red-700 hover:bg-red-200" : "text-white"}`}
-                                      style={cta.style !== "danger" ? { background: "var(--primary-dark)" } : undefined}
-                                    >
-                                      {cta.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                              {hasDraft && (
-                                <DraftRoadmapChatCard
-                                  draft={draftData}
-                                  onAction={submit}
-                                />
-                              )}
-                              {resolvedRoadmap && (
-                                <RoadmapChatCard
-                                  roadmap={resolvedRoadmap}
-                                  role={userProfile?.role ?? "employee"}
-                                  token={getAccess() ?? ""}
-                                  onAction={submit}
-                                  employeeId={userProfile?.employee_id}
-                                />
-                              )}
-                            </>
-                          );
-                        })()}
+                        {msg.tool_results &&
+                          (() => {
+                            const inlineCTAs = buildInlineCTAs(
+                              msg.tool_results,
+                            );
+                            const roadmapKeys = [
+                              "generate_skill_roadmap",
+                              "get_roadmap_details",
+                              "confirm_roadmap_draft",
+                              "submit_roadmap_step",
+                              "approve_roadmap_step",
+                              "reject_roadmap_step",
+                              "approve_roadmap",
+                              "reject_roadmap",
+                            ];
+                            const draftData =
+                              msg.tool_results!["save_roadmap_draft"];
+                            const hasDraft = Boolean(
+                              draftData?.draft_id &&
+                              Array.isArray(draftData?.steps) &&
+                              draftData.steps.length > 0,
+                            );
+                            const roadmapData = roadmapKeys
+                              .map((k) => msg.tool_results![k])
+                              .find((v) => v?.id && v?.steps);
+                            const pendingList: any[] | undefined =
+                              msg.tool_results!["get_pending_roadmap_approvals"]
+                                ?.pending_roadmaps;
+                            const roadmapListItem =
+                              msg.tool_results!["get_skill_roadmaps"]
+                                ?.roadmaps?.[0];
+                            const resolvedRoadmap =
+                              roadmapData ?? pendingList?.[0] ?? null;
+                            return (
+                              <>
+                                {inlineCTAs.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+                                    {inlineCTAs.map((cta) => (
+                                      <button
+                                        key={cta.label}
+                                        onClick={() => submit(cta.action)}
+                                        className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${cta.style === "danger" ? "bg-red-100 text-red-700 hover:bg-red-200" : "text-white"}`}
+                                        style={
+                                          cta.style !== "danger"
+                                            ? {
+                                                background:
+                                                  "var(--primary-dark)",
+                                              }
+                                            : undefined
+                                        }
+                                      >
+                                        {cta.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                                {hasDraft && (
+                                  <DraftRoadmapChatCard
+                                    draft={draftData}
+                                    onAction={submit}
+                                  />
+                                )}
+                                {resolvedRoadmap && (
+                                  <RoadmapChatCard
+                                    roadmap={resolvedRoadmap}
+                                    role={userProfile?.role ?? "employee"}
+                                    token={getAccess() ?? ""}
+                                    onAction={submit}
+                                    employeeId={userProfile?.employee_id}
+                                  />
+                                )}
+                              </>
+                            );
+                          })()}
                       </>
                     )}
                   </div>
                 </div>
-            ))}
+              ),
+            )}
 
             {/* Typing indicator */}
             {loading && (
               <div className="flex justify-start">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center mr-2.5 mt-1 flex-shrink-0 text-[10px] font-black shadow-sm" style={{ background: "var(--primary-dark)", color: "var(--primary)" }}>
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center mr-2.5 mt-1 flex-shrink-0 text-[10px] font-black shadow-sm"
+                  style={{
+                    background: "var(--primary-dark)",
+                    color: "var(--primary)",
+                  }}
+                >
                   ✦
                 </div>
-                <div className="px-5 py-4 bg-white" style={{ borderRadius: "6px 20px 20px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)" }}>
+                <div
+                  className="px-5 py-4 bg-white"
+                  style={{
+                    borderRadius: "6px 20px 20px 20px",
+                    boxShadow:
+                      "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
+                  }}
+                >
                   <div className="flex gap-1 items-center h-4">
-                    <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:-0.3s]" style={{ background: "var(--primary)" }} />
-                    <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:-0.15s]" style={{ background: "var(--primary)" }} />
-                    <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: "var(--primary)" }} />
+                    <span
+                      className="w-2 h-2 rounded-full animate-bounce [animation-delay:-0.3s]"
+                      style={{ background: "var(--primary)" }}
+                    />
+                    <span
+                      className="w-2 h-2 rounded-full animate-bounce [animation-delay:-0.15s]"
+                      style={{ background: "var(--primary)" }}
+                    />
+                    <span
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{ background: "var(--primary)" }}
+                    />
                   </div>
                 </div>
               </div>
@@ -1787,11 +2788,27 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
         </div>
 
         {/* Input bar */}
-        <div className="px-6 py-4 flex-shrink-0" style={{ background: "#FAFAFA", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+        <div
+          className="px-6 py-4 flex-shrink-0"
+          style={{
+            background: "#FAFAFA",
+            borderTop: "1px solid rgba(0,0,0,0.06)",
+          }}
+        >
           <form
-            onSubmit={(e) => { e.preventDefault(); submit(input); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit(input);
+            }}
           >
-            <div className="flex items-end gap-3 px-4 py-3 rounded-2xl transition-all" style={{ background: "white", boxShadow: "0 0 0 1px rgba(0,0,0,0.07), 0 4px 20px rgba(0,0,0,0.06)" }}>
+            <div
+              className="flex items-end gap-3 px-4 py-3 rounded-2xl transition-all"
+              style={{
+                background: "white",
+                boxShadow:
+                  "0 0 0 1px rgba(0,0,0,0.07), 0 4px 20px rgba(0,0,0,0.06)",
+              }}
+            >
               <textarea
                 ref={textareaRef}
                 rows={1}
@@ -1805,14 +2822,32 @@ export default function ChatPage({ embedded, onNav }: ChatPageProps = {}) {
                 type="submit"
                 disabled={!input.trim() || loading}
                 className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all mb-0.5 disabled:opacity-25"
-                style={{ background: input.trim() && !loading ? "var(--primary-dark)" : "#E5E7EB" }}
+                style={{
+                  background:
+                    input.trim() && !loading
+                      ? "var(--primary-dark)"
+                      : "#E5E7EB",
+                }}
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke={input.trim() && !loading ? "white" : "#9CA3AF"} strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke={input.trim() && !loading ? "white" : "#9CA3AF"}
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 12h14M12 5l7 7-7 7"
+                  />
                 </svg>
               </button>
             </div>
-            <p className="text-center text-[10px] mt-2" style={{ color: "rgba(0,0,0,0.25)" }}>
+            <p
+              className="text-center text-[10px] mt-2"
+              style={{ color: "rgba(0,0,0,0.25)" }}
+            >
               Enter to send · Shift+Enter for new line
             </p>
           </form>
