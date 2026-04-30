@@ -550,17 +550,49 @@ function TimeTrackerCard({
   const isClockedIn = !!todayLog?.check_in && !todayLog?.check_out;
   const isClockedOut = !!todayLog?.check_out;
 
+  async function getGeo() {
+    if (!("geolocation" in navigator)) {
+      throw new Error("Geolocation is not supported in this browser.");
+    }
+    return await new Promise<{
+      latitude: number;
+      longitude: number;
+      accuracy_m: number | null;
+    }>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy_m: Number.isFinite(pos.coords.accuracy) ? Math.round(pos.coords.accuracy) : null,
+          });
+        },
+        (err) => {
+          reject(new Error(err?.message || "Location permission denied."));
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
+      );
+    });
+  }
+
   async function handleClockIn() {
     setError("");
     setActionLoading(true);
-    const today = new Date().toISOString().slice(0, 10);
-    const res = await apiPost(token, "/attendance/check-in/", {
-      date: today,
-      status: "PRESENT",
-    });
-    if (res?.error) setError(res.error);
-    else await fetchToday();
-    setActionLoading(false);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const geo = await getGeo();
+      const res = await apiPost(token, "/attendance/check-in/", {
+        date: today,
+        status: "PRESENT",
+        ...geo,
+      });
+      if (res?.error) setError(res.error);
+      else await fetchToday();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to access location.");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function handleClockOut() {
@@ -570,10 +602,16 @@ function TimeTrackerCard({
     }
     setError("");
     setActionLoading(true);
-    const res = await apiPost(token, "/attendance/check-out/");
-    if (res?.error) setError(res.error);
-    else await fetchToday();
-    setActionLoading(false);
+    try {
+      const geo = await getGeo();
+      const res = await apiPost(token, "/attendance/check-out/", geo);
+      if (res?.error) setError(res.error);
+      else await fetchToday();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to access location.");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   return (

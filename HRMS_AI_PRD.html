@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HRMS-AI — Product Requirements Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: #080c14;
+    --bg2: #0d1220;
+    --bg3: #111827;
+    --surface: #161d2e;
+    --surface2: #1e2740;
+    --border: rgba(255,255,255,0.07);
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --dim: #94a3b8;
+
+    --blue: #3b82f6;
+    --blue-dim: rgba(59,130,246,0.12);
+    --purple: #8b5cf6;
+    --purple-dim: rgba(139,92,246,0.12);
+    --cyan: #06b6d4;
+    --cyan-dim: rgba(6,182,212,0.12);
+    --green: #10b981;
+    --green-dim: rgba(16,185,129,0.12);
+    --yellow: #f59e0b;
+    --yellow-dim: rgba(245,158,11,0.12);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.12);
+    --pink: #ec4899;
+    --pink-dim: rgba(236,72,153,0.12);
+    --orange: #f97316;
+    --orange-dim: rgba(249,115,22,0.12);
+
+    --sidebar-w: 260px;
+    --font: 'Inter', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── PROGRESS BAR ── */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 2px; width: 0%;
+    background: linear-gradient(90deg, var(--blue), var(--purple), var(--cyan));
+    z-index: 1000; transition: width 0.1s linear;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    position: fixed; top: 0; left: 0; width: var(--sidebar-w);
+    height: 100vh; overflow-y: auto; overflow-x: hidden;
+    background: var(--bg2); border-right: 1px solid var(--border);
+    padding: 24px 0; z-index: 100;
+    scrollbar-width: thin; scrollbar-color: var(--surface2) transparent;
+  }
+
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+
+  .sidebar-logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .sidebar-logo .logo-tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    color: var(--blue); text-transform: uppercase;
+  }
+  .sidebar-logo .logo-title {
+    font-size: 18px; font-weight: 800; color: var(--text);
+    line-height: 1.2; margin-top: 4px;
+  }
+
+  .sidebar-nav { list-style: none; }
+  .sidebar-nav li a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 20px; text-decoration: none;
+    color: var(--muted); font-size: 12.5px; font-weight: 500;
+    transition: all 0.2s; border-left: 2px solid transparent;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sidebar-nav li a:hover { color: var(--text); background: var(--surface); }
+  .sidebar-nav li a.active {
+    color: var(--blue); border-left-color: var(--blue);
+    background: var(--blue-dim);
+  }
+  .sidebar-nav li a .nav-num {
+    font-size: 10px; font-weight: 700; font-family: var(--mono);
+    color: var(--muted); min-width: 18px;
+  }
+  .sidebar-nav li a.active .nav-num { color: var(--blue); }
+
+  /* ── MAIN ── */
+  #main {
+    margin-left: var(--sidebar-w);
+    min-height: 100vh;
+  }
+
+  /* ── HERO ── */
+  #hero {
+    position: relative; overflow: hidden;
+    padding: 80px 60px 60px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero-gradient {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(59,130,246,0.15) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 40% at 80% 50%, rgba(139,92,246,0.1) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 50% at 10% 80%, rgba(6,182,212,0.08) 0%, transparent 70%);
+    animation: heroGlow 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes heroGlow {
+    0%   { opacity: 0.7; transform: scale(1); }
+    100% { opacity: 1;   transform: scale(1.05); }
+  }
+
+  .hero-content { position: relative; z-index: 1; }
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--blue-dim); border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 20px; padding: 4px 14px;
+    font-size: 11px; font-weight: 600; color: var(--blue);
+    letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 20px;
+  }
+  .hero-title {
+    font-size: 52px; font-weight: 800; line-height: 1.1;
+    background: linear-gradient(135deg, #fff 0%, var(--blue) 50%, var(--purple) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 12px;
+  }
+  .hero-subtitle {
+    font-size: 18px; color: var(--dim); font-weight: 400; margin-bottom: 28px;
+    max-width: 600px;
+  }
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+  .hero-tag {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 12px;
+    font-size: 12px; font-weight: 500; color: var(--dim);
+    font-family: var(--mono);
+  }
+  .hero-meta {
+    display: flex; gap: 24px; align-items: center;
+    font-size: 13px; color: var(--muted);
+  }
+  .hero-meta span { display: flex; align-items: center; gap: 6px; }
+  .hero-meta strong { color: var(--text); }
+
+  /* ── CONTENT ── */
+  .content { padding: 0 60px 80px; }
+
+  /* ── SECTION ── */
+  .section {
+    padding-top: 64px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 32px; padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    padding: 4px 10px; border-radius: 6px;
+    min-width: 44px; text-align: center;
+  }
+  .section-title {
+    font-size: 26px; font-weight: 700; color: var(--text);
+  }
+
+  /* Section color themes */
+  .s1 .section-num { background: var(--blue-dim);   color: var(--blue);   }
+  .s2 .section-num { background: var(--purple-dim); color: var(--purple); }
+  .s3 .section-num { background: var(--cyan-dim);   color: var(--cyan);   }
+  .s4 .section-num { background: var(--green-dim);  color: var(--green);  }
+  .s5 .section-num { background: var(--yellow-dim); color: var(--yellow); }
+  .s6 .section-num { background: var(--pink-dim);   color: var(--pink);   }
+  .s7 .section-num { background: var(--orange-dim); color: var(--orange); }
+  .s8 .section-num { background: var(--red-dim);    color: var(--red);    }
+  .s9 .section-num { background: var(--blue-dim);   color: var(--blue);   }
+  .s10 .section-num{ background: var(--cyan-dim);   color: var(--cyan);   }
+  .s11 .section-num{ background: var(--green-dim);  color: var(--green);  }
+  .s12 .section-num{ background: var(--red-dim);    color: var(--red);    }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(255,255,255,0.12); }
+
+  .card-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  /* ── RULE CARD ── */
+  .rule-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 32px; }
+  .rule-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    display: flex; align-items: flex-start; gap: 14px;
+  }
+  .rule-num {
+    font-family: var(--mono); font-size: 22px; font-weight: 800;
+    color: var(--blue); opacity: 0.5; line-height: 1; flex-shrink: 0;
+  }
+  .rule-text { font-size: 14px; color: var(--dim); line-height: 1.6; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 24px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: var(--surface2); padding: 12px 16px;
+    text-align: left; font-size: 12px; font-weight: 600;
+    color: var(--muted); letter-spacing: 0.5px; white-space: nowrap;
+  }
+  tbody tr { border-top: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody td { padding: 12px 16px; font-size: 13.5px; color: var(--dim); vertical-align: top; }
+  tbody td:first-child { color: var(--text); font-weight: 500; }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .badge-green  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(16,185,129,0.25); }
+  .badge-yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+  .badge-red    { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+  .badge-blue   { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(59,130,246,0.25); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(139,92,246,0.25); }
+  .badge-cyan   { background: var(--cyan-dim);   color: var(--cyan);   border: 1px solid rgba(6,182,212,0.25); }
+  .badge-gray   { background: var(--surface2);   color: var(--muted);  border: 1px solid var(--border); }
+
+  /* ── CODE ── */
+  code {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--bg3); color: var(--cyan);
+    padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border);
+  }
+  pre {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 13px; color: var(--text);
+    line-height: 1.6; margin: 16px 0;
+  }
+  pre code { background: none; padding: 0; border: none; color: inherit; font-size: inherit; }
+
+  /* ── FR CARDS ── */
+  .fr-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .fr-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .fr-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.12); }
+  .fr-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .fr-num {
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 6px;
+    background: var(--blue-dim); color: var(--blue); white-space: nowrap;
+  }
+  .fr-title { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+  .fr-desc { font-size: 13px; color: var(--dim); margin-bottom: 12px; line-height: 1.6; }
+  .fr-validation { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .fr-validation strong { color: var(--yellow); }
+  .fr-code {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--green);
+    background: var(--green-dim); border: 1px solid rgba(16,185,129,0.2);
+    padding: 4px 10px; border-radius: 6px; margin-top: 4px;
+  }
+
+  /* ── FLOW STEPS ── */
+  .flow-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
+  }
+  .flow-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px; background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .flow-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .flow-body { padding: 0; }
+  .flow-step {
+    display: flex; align-items: flex-start; gap: 16px;
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+  }
+  .flow-step:last-child { border-bottom: none; }
+  .step-dot {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; font-family: var(--mono);
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .step-text { font-size: 13.5px; color: var(--dim); line-height: 1.6; flex: 1; }
+  .step-text code { font-size: 12px; }
+
+  /* ── ENTITY CARDS ── */
+  .entity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .entity-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .entity-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .entity-domain {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; padding: 2px 8px; border-radius: 4px;
+  }
+  .entity-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .entity-file { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+  .entity-fields { padding: 14px 18px; }
+  .entity-field {
+    display: flex; gap: 8px; align-items: baseline;
+    padding: 4px 0; border-bottom: 1px dashed var(--border); font-size: 13px;
+  }
+  .entity-field:last-child { border-bottom: none; }
+  .field-name { color: var(--text); font-weight: 500; font-family: var(--mono); font-size: 12px; min-width: 140px; flex-shrink: 0; }
+  .field-type { color: var(--muted); font-size: 12px; }
+  .field-rel  { color: var(--purple); font-size: 12px; font-style: italic; }
+
+  /* ── STATS ROW ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; text-align: center;
+  }
+  .stat-num { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 6px; }
+  .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow-diagram {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+    font-family: var(--mono); font-size: 13px;
+  }
+  .flow-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; color: var(--dim); }
+  .flow-row:last-child { margin-bottom: 0; }
+  .flow-intent { color: var(--yellow); font-weight: 600; margin-right: 8px; }
+  .flow-node {
+    background: var(--surface2); color: var(--cyan);
+    padding: 3px 10px; border-radius: 5px; font-size: 12px;
+  }
+  .flow-arrow { color: var(--muted); margin: 0 2px; }
+
+  /* ── NFR GRID ── */
+  .nfr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .nfr-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .nfr-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .nfr-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nfr-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .nfr-items { list-style: none; }
+  .nfr-items li {
+    font-size: 13px; color: var(--dim); padding: 5px 0;
+    border-bottom: 1px dashed var(--border); line-height: 1.6;
+  }
+  .nfr-items li:last-child { border-bottom: none; }
+  .nfr-items li::before { content: "→ "; color: var(--muted); }
+
+  /* ── GAP CARDS ── */
+  .gap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .gap-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    border-top: 3px solid;
+  }
+  .gap-card.missing  { border-top-color: var(--red); }
+  .gap-card.debt     { border-top-color: var(--yellow); }
+  .gap-card.risk     { border-top-color: var(--orange); }
+  .gap-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .gap-items { list-style: none; }
+  .gap-items li { font-size: 12.5px; color: var(--dim); padding: 4px 0; line-height: 1.6; }
+  .gap-items li::before { content: "• "; color: var(--muted); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px; background: var(--border); margin: 32px 0;
+  }
+
+  /* ── BACK TO TOP ── */
+  #back-top {
+    position: fixed; bottom: 28px; right: 28px;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--blue); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; box-shadow: 0 4px 20px rgba(59,130,246,0.4);
+    transition: transform 0.2s, opacity 0.2s;
+    opacity: 0; pointer-events: none; z-index: 200;
+  }
+  #back-top.visible { opacity: 1; pointer-events: all; }
+  #back-top:hover { transform: translateY(-3px); }
+
+  /* ── MISC ── */
+  p { color: var(--dim); margin-bottom: 12px; line-height: 1.7; }
+  h3 { font-size: 17px; font-weight: 600; color: var(--text); margin: 24px 0 12px; }
+  h4 { font-size: 14px; font-weight: 600; color: var(--dim); margin: 16px 0 8px; }
+  ul, ol { padding-left: 20px; color: var(--dim); font-size: 14px; }
+  li { margin-bottom: 4px; line-height: 1.6; }
+
+  .tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .tag {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px;
+    font-size: 12px; color: var(--dim);
+  }
+
+  .info-box {
+    background: var(--blue-dim); border: 1px solid rgba(59,130,246,0.2);
+    border-radius: var(--radius-sm); padding: 14px 18px; margin: 16px 0;
+    font-size: 13.5px; color: var(--dim);
+  }
+  .info-box strong { color: var(--blue); }
+
+  .warn-box {
+    background: var(--yellow-dim); border: 1px solid rgba(245,158,11,0.2);
+    border-radius: var(--radius-sm); padding: 14px 18px; margin: 16px 0;
+    font-size: 13.5px; color: var(--dim);
+  }
+  .warn-box strong { color: var(--yellow); }
+
+  /* ── PRINT ── */
+  @media print {
+    #sidebar, #back-top, #progress { display: none !important; }
+    #main { margin-left: 0 !important; }
+    .content { padding: 20px !important; }
+    .section { animation: none !important; }
+    body { background: #fff; color: #000; }
+    .card, .fr-card, .entity-card, .flow-card { border: 1px solid #ddd; }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    #sidebar { transform: translateX(-100%); }
+    #main { margin-left: 0; }
+    .content { padding: 0 24px 60px; }
+    #hero { padding: 48px 24px 40px; }
+    .hero-title { font-size: 34px; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .rule-cards { grid-template-columns: 1fr; }
+    .nfr-grid { grid-template-columns: 1fr; }
+    .gap-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-tag">PRD v1.0</div>
+    <div class="logo-title">HRMS-AI</div>
+  </div>
+  <ul class="sidebar-nav">
+    <li><a href="#overview"    class="active"><span class="nav-num">01</span>System Overview</a></li>
+    <li><a href="#purpose">            <span class="nav-num">02</span>Purpose &amp; Problem</a></li>
+    <li><a href="#architecture">       <span class="nav-num">03</span>Architecture</a></li>
+    <li><a href="#scope">              <span class="nav-num">04</span>Feature Scope</a></li>
+    <li><a href="#flows">              <span class="nav-num">05</span>User Flows</a></li>
+    <li><a href="#requirements">       <span class="nav-num">06</span>Functional Requirements</a></li>
+    <li><a href="#datamodel">          <span class="nav-num">07</span>Data Model</a></li>
+    <li><a href="#edgecases">          <span class="nav-num">08</span>Edge Cases</a></li>
+    <li><a href="#nfr">                <span class="nav-num">09</span>Non-Functional</a></li>
+    <li><a href="#celery">             <span class="nav-num">10</span>Celery Beat Schedule</a></li>
+    <li><a href="#traceability">       <span class="nav-num">11</span>Traceability Matrix</a></li>
+    <li><a href="#gaps">               <span class="nav-num">12</span>Gaps &amp; Risks</a></li>
+  </ul>
+</nav>
+
+<!-- MAIN -->
+<main id="main">
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-gradient"></div>
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <span>Product Requirements Document</span>
+      </div>
+      <h1 class="hero-title">HRMS-AI</h1>
+      <p class="hero-subtitle">AI-Powered Human Resource Management System — conversational agent, async workflows, real-time notifications.</p>
+      <div class="hero-tags">
+        <span class="hero-tag">Django 5</span>
+        <span class="hero-tag">React 18 + TS</span>
+        <span class="hero-tag">LangGraph</span>
+        <span class="hero-tag">pgvector</span>
+        <span class="hero-tag">RabbitMQ + Celery</span>
+        <span class="hero-tag">Redis</span>
+        <span class="hero-tag">JWT</span>
+        <span class="hero-tag">Docker Compose</span>
+        <span class="hero-tag">WebSocket</span>
+      </div>
+      <div class="hero-meta">
+        <span><strong>Team:</strong> Dhurandar — Human Edge</span>
+        <span><strong>Phase:</strong> 6 / 6</span>
+        <span><strong>Date:</strong> April 2026</span>
+        <span><strong>Version:</strong> 1.0</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="content">
+
+    <!-- STATS -->
+    <div style="padding-top:48px;">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num" style="color:var(--blue)">20+</div>
+          <div class="stat-label">AI Intents</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" style="color:var(--purple)">50+</div>
+          <div class="stat-label">MCP Tools</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" style="color:var(--green)">9</div>
+          <div class="stat-label">Docker Services</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" style="color:var(--cyan)">5</div>
+          <div class="stat-label">LLM Providers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 1: Overview -->
+    <section id="overview" class="section s1">
+      <div class="section-header">
+        <span class="section-num">01</span>
+        <h2 class="section-title">System Overview</h2>
+      </div>
+      <p>HRMS-AI is a full-stack, AI-native HR platform that replaces manual HR operations with a conversational agent. Employees interact via a chat-first interface to apply leaves, regularize attendance, request WFH, track upskilling, and query policies. Managers approve via notification CTAs without navigating dashboards.</p>
+
+      <h3>Tech Stack</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+          <tbody>
+            <tr><td>Backend</td><td>Python 3.12 + Django 5 + Django REST Framework</td></tr>
+            <tr><td>Async</td><td>RabbitMQ (broker) + Celery (workers) + Celery Beat (scheduler)</td></tr>
+            <tr><td>AI / Agent</td><td>LangChain + LangGraph + multi-provider LLM (OpenAI / Anthropic / Gemini / Azure / Ollama)</td></tr>
+            <tr><td>Storage</td><td>PostgreSQL + pgvector (embeddings) + Redis (cache + channels)</td></tr>
+            <tr><td>Auth</td><td>JWT — SimpleJWT</td></tr>
+            <tr><td>Frontend</td><td>React 18 + TypeScript + Tailwind CSS + Recharts</td></tr>
+            <tr><td>Real-time</td><td>Django Channels + Daphne (WebSocket / ASGI)</td></tr>
+            <tr><td>Infrastructure</td><td>Docker Compose — 9 services</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 2: Purpose -->
+    <section id="purpose" class="section s2">
+      <div class="section-header">
+        <span class="section-num">02</span>
+        <h2 class="section-title">Purpose &amp; Problem</h2>
+      </div>
+
+      <div class="card" style="margin-bottom:20px; border-left: 3px solid var(--purple);">
+        <h4 style="color:var(--purple);margin-top:0;">Problem Statement</h4>
+        <ul>
+          <li>HR ops (leaves, attendance, regularization, comp-off, upskilling) require multi-system navigation and manual approvals</li>
+          <li>Burnout and attrition risk are invisible until too late</li>
+          <li>Policy Q&amp;A requires HR intervention for every single query</li>
+          <li>High HR toil on repetitive approval workflows</li>
+        </ul>
+      </div>
+
+      <h3>User Roles</h3>
+      <div class="card-grid">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span class="badge badge-blue">Employee</span>
+          </div>
+          <p style="margin:0;font-size:13px;">Apply leaves, WFH, regularize attendance, track upskilling roadmap, query policies via chat</p>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span class="badge badge-purple">Manager</span>
+          </div>
+          <p style="margin:0;font-size:13px;">Approve team leaves / regularizations / WFH / roadmaps. View team analytics and burnout signals</p>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span class="badge badge-cyan">HR</span>
+          </div>
+          <p style="margin:0;font-size:13px;">Policy management, org insights, penalty oversight, pre-payroll alerts</p>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span class="badge badge-green">CFO</span>
+          </div>
+          <p style="margin:0;font-size:13px;">Payroll view, leave forecasts, workforce cost analytics</p>
+        </div>
+      </div>
+
+      <h3>Evidence from Code</h3>
+      <div class="tag-row">
+        <span class="tag"><code>core/permissions.py</code> — IsEmployee, IsManager, IsHR, IsCFO</span>
+        <span class="tag"><code>agents/intent_registry.py</code> — 20+ intents</span>
+        <span class="tag"><code>apps/feedback/models.py</code> — burnout/attrition risk_flags</span>
+        <span class="tag"><code>CLAUDE.md §7</code> — 6-phase build plan</span>
+      </div>
+    </section>
+
+    <!-- SECTION 3: Architecture -->
+    <section id="architecture" class="section s3">
+      <div class="section-header">
+        <span class="section-num">03</span>
+        <h2 class="section-title">Architecture</h2>
+      </div>
+
+      <h3>Four Golden Rules</h3>
+      <div class="rule-cards">
+        <div class="rule-card">
+          <div class="rule-num">1</div>
+          <div class="rule-text">Django owns all writes. <strong style="color:var(--text)">AI never touches DB directly.</strong></div>
+        </div>
+        <div class="rule-card">
+          <div class="rule-num">2</div>
+          <div class="rule-text">Every AI action is async via RabbitMQ + Celery. <strong style="color:var(--text)">Never block HTTP.</strong></div>
+        </div>
+        <div class="rule-card">
+          <div class="rule-num">3</div>
+          <div class="rule-text">MCP tools are the <strong style="color:var(--text)">ONLY way AI reads live data.</strong></div>
+        </div>
+        <div class="rule-card">
+          <div class="rule-num">4</div>
+          <div class="rule-text"><strong style="color:var(--text)">Open for extension, closed for modification</strong> (OCP) — everywhere.</div>
+        </div>
+      </div>
+
+      <h3>Design Patterns</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pattern</th><th>Where Used</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>Strategy</td><td><code>core/llm/</code> — BaseLLMProvider + Factory</td><td>Swap LLM providers with zero agent changes</td></tr>
+            <tr><td>Repository</td><td>Every app — BaseReadRepository / BaseWriteRepository</td><td>Agents get read-only repos; services get write repos</td></tr>
+            <tr><td>Service Layer</td><td>Every app — XxxService</td><td>Views stay thin; logic testable in isolation</td></tr>
+            <tr><td>Template Method</td><td><code>core/tasks/base.py</code> — BaseHRMSTask</td><td>All tasks get logging + retry for free</td></tr>
+            <tr><td>Observer</td><td><code>apps/*/signals.py</code> — signals → .delay() only</td><td>Loose coupling between domain events and async</td></tr>
+            <tr><td>Factory</td><td>LLMProviderFactory, NotificationDispatcher</td><td>Extension without modification</td></tr>
+            <tr><td>Decorator</td><td><code>core/decorators.py</code> — @rate_limit</td><td>Wraps views cleanly</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Data Flow</h3>
+      <div class="info-box">
+        <strong>View</strong> → <strong>Service</strong> → <strong>Repository</strong> → <strong>ORM</strong>
+        &nbsp;&nbsp;|&nbsp;&nbsp; Never skip layers. No ORM in views.
+      </div>
+
+      <h3>LangGraph Intent → Flow Mapping</h3>
+      <div class="flow-diagram">
+        <div class="flow-row"><span class="flow-intent">leave_collection</span><span class="flow-node">leave_collector</span><span class="flow-arrow">→</span><span class="flow-node">mcp_tools</span><span class="flow-arrow">→</span><span class="flow-node">rag</span><span class="flow-arrow">→</span><span class="flow-node">policy_checker</span><span class="flow-arrow">→</span><span class="flow-node">spof</span><span class="flow-arrow">→</span><span class="flow-node">conflict</span><span class="flow-arrow">→</span><span class="flow-node">llm</span><span class="flow-arrow">→ END</span></div>
+        <div class="flow-row"><span class="flow-intent">leave_application</span><span class="flow-node">mcp_tools</span><span class="flow-arrow">→</span><span class="flow-node">spof</span><span class="flow-arrow">→</span><span class="flow-node">conflict</span><span class="flow-arrow">→</span><span class="flow-node">rag</span><span class="flow-arrow">→</span><span class="flow-node">llm</span><span class="flow-arrow">→ END</span></div>
+        <div class="flow-row"><span class="flow-intent">burnout_check</span><span class="flow-node">mcp_tools</span><span class="flow-arrow">→</span><span class="flow-node">rag</span><span class="flow-arrow">→</span><span class="flow-node">llm</span><span class="flow-arrow">→ END</span></div>
+        <div class="flow-row"><span class="flow-intent">policy_query</span><span class="flow-node">rag</span><span class="flow-arrow">→</span><span class="flow-node">llm</span><span class="flow-arrow">→ END</span></div>
+        <div class="flow-row"><span class="flow-intent">employee_query</span><span class="flow-node">nl_query</span><span class="flow-arrow">→</span><span class="flow-node">mcp_tools</span><span class="flow-arrow">→</span><span class="flow-node">llm</span><span class="flow-arrow">→ END</span></div>
+        <div class="flow-row"><span class="flow-intent">upskilling</span><span class="flow-node">mcp_tools</span><span class="flow-arrow">→</span><span class="flow-node">llm</span><span class="flow-arrow">→ END</span></div>
+      </div>
+
+      <h3>Docker Services</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Service</th><th>Port</th><th>Image / Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>web</td><td>8000</td><td>Django + Gunicorn</td></tr>
+            <tr><td>channels</td><td>8001</td><td>Daphne — ASGI / WebSocket</td></tr>
+            <tr><td>celery_worker_default</td><td>—</td><td>leave + notifications queues (concurrency=4)</td></tr>
+            <tr><td>celery_worker_ai</td><td>—</td><td>ai_heavy + analytics queues (concurrency=2)</td></tr>
+            <tr><td>celery_beat</td><td>—</td><td>DatabaseScheduler</td></tr>
+            <tr><td>postgres</td><td>5432</td><td>pgvector/pgvector:pg16</td></tr>
+            <tr><td>redis</td><td>6379</td><td>redis:7-alpine (512MB LRU)</td></tr>
+            <tr><td>rabbitmq</td><td>5672 / 15672</td><td>rabbitmq:3.13-management</td></tr>
+            <tr><td>frontend</td><td>5173</td><td>React + Vite</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 4: Scope -->
+    <section id="scope" class="section s4">
+      <div class="section-header">
+        <span class="section-num">04</span>
+        <h2 class="section-title">Feature Scope</h2>
+      </div>
+
+      <h3>In Scope</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Domain</th><th>Features</th></tr></thead>
+          <tbody>
+            <tr><td>Auth</td><td>Email JWT, RBAC (employee / manager / hr / cfo / admin), SimpleJWT</td></tr>
+            <tr><td>Leave</td><td>Apply CL / PL / SL / CO / LOP, approve, reject, cancel, balance tracking, comp-off workflow</td></tr>
+            <tr><td>Attendance</td><td>Check-in / out, regularization (3-attempt), WFH request, anomaly detection, penalty (PL/LOP)</td></tr>
+            <tr><td>AI Agent</td><td>Multi-turn chat, 20+ intents, leave collection, policy Q&amp;A via RAG, multi-provider LLM</td></tr>
+            <tr><td>Upskilling</td><td>AI roadmap generation, step tracking, manager review, 8 skill categories</td></tr>
+            <tr><td>Feedback</td><td>Anonymous submission, AI sentiment (−1 to 1), risk flags (burnout / attrition), org snapshots</td></tr>
+            <tr><td>Notifications</td><td>In-app WS push, re-notify (×3 / 60-min cooldown), email, Slack dispatch</td></tr>
+            <tr><td>Social Feed</td><td>Posts + kudos + optional images, likes (unique), threaded comments, pagination</td></tr>
+            <tr><td>Reporting</td><td>Pre-computed reports, org insights, leave forecasts</td></tr>
+            <tr><td>Payroll</td><td>PayrollSlip model (gross / net) — storage only</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Out of Scope</h3>
+      <div class="warn-box">
+        <strong>Explicitly missing:</strong> Performance review full workflow (models exist, no agent flow) · Payroll calculation logic · Mobile app / PWA · Third-party HRIS integrations (BambooHR, Workday)
+      </div>
+    </section>
+
+    <!-- SECTION 5: Flows -->
+    <section id="flows" class="section s5">
+      <div class="section-header">
+        <span class="section-num">05</span>
+        <h2 class="section-title">User Flows</h2>
+      </div>
+
+      <!-- Flow 1 -->
+      <div class="flow-card">
+        <div class="flow-header">
+          <div class="flow-icon" style="background:var(--blue-dim);color:var(--blue);">
+            <i data-lucide="message-circle" style="width:16px;height:16px;"></i>
+          </div>
+          <span class="flow-title">Flow 1 — Employee Applies Leave via Chat</span>
+        </div>
+        <div class="flow-body">
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">1</div><div class="step-text">Employee opens ChatPage → sends <code>"Apply 3 days PL from May 5"</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">2</div><div class="step-text"><code>POST /api/ai/chat/</code> → <code>ChatService.handle_turn()</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">3</div><div class="step-text">Router detects intent <code>leave_collection</code> via keyword match → <code>agents/router.py</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">4</div><div class="step-text"><code>leave_collector.py</code> extracts: type=PL, from=May 5, days=3, to=May 7</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">5</div><div class="step-text">If ambiguous → follow-up question sent (multi-turn state preserved)</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">6</div><div class="step-text">On confirmation → <code>mcp_tools</code> calls <code>apply_leave</code> → <code>LeaveService.apply()</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">7</div><div class="step-text">LeaveService validates: balance ≥ days, no overlap, backdating limit, weekends excluded → creates <code>LeaveRequest(status=PENDING)</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">8</div><div class="step-text"><code>post_save</code> signal → <code>dispatch_notification.delay()</code> → manager WS push</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--blue-dim);color:var(--blue);">9</div><div class="step-text">LLM generates personalized confirmation with leave summary → returned to chat</div></div>
+        </div>
+      </div>
+
+      <!-- Flow 2 -->
+      <div class="flow-card">
+        <div class="flow-header">
+          <div class="flow-icon" style="background:var(--green-dim);color:var(--green);">
+            <i data-lucide="check-circle" style="width:16px;height:16px;"></i>
+          </div>
+          <span class="flow-title">Flow 2 — Manager Approves Leave via Notification CTA</span>
+        </div>
+        <div class="flow-body">
+          <div class="flow-step"><div class="step-dot" style="background:var(--green-dim);color:var(--green);">1</div><div class="step-text">Manager chat shows notification bubble: "Ravi Kumar applied 3 days PL" with <strong>Approve</strong> CTA</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--green-dim);color:var(--green);">2</div><div class="step-text">Manager clicks CTA → frontend sends chat message: <code>"Approve leave #42"</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--green-dim);color:var(--green);">3</div><div class="step-text">Router detects intent <code>approve_leave</code>, extracts <code>leave_id=42</code> (integer always present)</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--green-dim);color:var(--green);">4</div><div class="step-text"><code>mcp_tools</code> → <code>approve_leave_request(leave_id=42)</code> → RBAC check passes</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--green-dim);color:var(--green);">5</div><div class="step-text"><code>LeaveService.approve()</code> → single <code>write_repo.update(status, approver, balance_deducted)</code> → signal fires exactly once</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--green-dim);color:var(--green);">6</div><div class="step-text"><code>process_leave_approval.delay()</code> → idempotency guard (<code>already_notified</code> check) → WS push to employee</div></div>
+        </div>
+      </div>
+
+      <!-- Flow 3 -->
+      <div class="flow-card">
+        <div class="flow-header">
+          <div class="flow-icon" style="background:var(--yellow-dim);color:var(--yellow);">
+            <i data-lucide="clock" style="width:16px;height:16px;"></i>
+          </div>
+          <span class="flow-title">Flow 3 — Attendance Regularization</span>
+        </div>
+        <div class="flow-body">
+          <div class="flow-step"><div class="step-dot" style="background:var(--yellow-dim);color:var(--yellow);">1</div><div class="step-text">Employee: <code>"I forgot to check out on April 28"</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--yellow-dim);color:var(--yellow);">2</div><div class="step-text">Router intent: <code>regularize_attendance</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--yellow-dim);color:var(--yellow);">3</div><div class="step-text"><code>create_regularization_request(date=2026-04-28, requested_check_out=18:00)</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--yellow-dim);color:var(--yellow);">4</div><div class="step-text">AttendanceService validates: within 3 working days, not weekend, not on approved leave, attempt_count &lt; 3, no WFH conflict</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--yellow-dim);color:var(--yellow);">5</div><div class="step-text">Creates <code>RegularizationRequest(status=PENDING)</code> → freezes penalty for that date</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--yellow-dim);color:var(--yellow);">6</div><div class="step-text">Manager approves → <code>AttendanceLog.status = REGULARIZED</code>, penalty reversed if active + unlocked</div></div>
+        </div>
+      </div>
+
+      <!-- Flow 4 -->
+      <div class="flow-card">
+        <div class="flow-header">
+          <div class="flow-icon" style="background:var(--cyan-dim);color:var(--cyan);">
+            <i data-lucide="search" style="width:16px;height:16px;"></i>
+          </div>
+          <span class="flow-title">Flow 4 — AI Policy Q&amp;A (RAG)</span>
+        </div>
+        <div class="flow-body">
+          <div class="flow-step"><div class="step-dot" style="background:var(--cyan-dim);color:var(--cyan);">1</div><div class="step-text">Employee: <code>"How many PLs accrue per month?"</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--cyan-dim);color:var(--cyan);">2</div><div class="step-text">Router intent: <code>policy_query</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--cyan-dim);color:var(--cyan);">3</div><div class="step-text"><code>rag_retrieval.py</code> → pgvector cosine similarity search against <code>RAGDocument</code> table</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--cyan-dim);color:var(--cyan);">4</div><div class="step-text">Top-k chunks injected into <code>AgentState.retrieved_docs</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--cyan-dim);color:var(--cyan);">5</div><div class="step-text">LLM builds response grounded in retrieved policy chunks — no hallucination of policy facts</div></div>
+        </div>
+      </div>
+
+      <!-- Flow 5 -->
+      <div class="flow-card">
+        <div class="flow-header">
+          <div class="flow-icon" style="background:var(--purple-dim);color:var(--purple);">
+            <i data-lucide="book-open" style="width:16px;height:16px;"></i>
+          </div>
+          <span class="flow-title">Flow 5 — Skill Roadmap (AI → Manager Approval)</span>
+        </div>
+        <div class="flow-body">
+          <div class="flow-step"><div class="step-dot" style="background:var(--purple-dim);color:var(--purple);">1</div><div class="step-text">Employee uses Mentor Q&amp;A in UpskillPage → AI generates <code>DraftRoadmap</code> with structured steps</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--purple-dim);color:var(--purple);">2</div><div class="step-text">Employee submits → <code>SkillRoadmap(status=PENDING_APPROVAL)</code> created</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--purple-dim);color:var(--purple);">3</div><div class="step-text">Manager sees pending roadmap in dashboard → approves → status → <code>IN_PROGRESS</code></div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--purple-dim);color:var(--purple);">4</div><div class="step-text">Employee marks steps complete, submits evidence URLs (<code>submission_url</code>)</div></div>
+          <div class="flow-step"><div class="step-dot" style="background:var(--purple-dim);color:var(--purple);">5</div><div class="step-text">Employee submits for review → <code>PENDING_REVIEW</code> → manager completes → <code>COMPLETED</code></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: Functional Requirements -->
+    <section id="requirements" class="section s6">
+      <div class="section-header">
+        <span class="section-num">06</span>
+        <h2 class="section-title">Functional Requirements</h2>
+      </div>
+      <div class="fr-grid">
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-01</span><span class="fr-title">Multi-Provider LLM</span></div>
+          <div class="fr-desc">All agent nodes use LLMProviderFactory — never direct SDK calls. Supports openai / anthropic / gemini / azure / ollama via env var <code>LLM_PROVIDER</code>.</div>
+          <div class="fr-validation"><strong>Validation:</strong> Unknown provider raises ValueError. Phase 4 test: set anthropic → agents work unchanged.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>core/llm/factory.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-02</span><span class="fr-title">JWT Authentication</span></div>
+          <div class="fr-desc">Email + password → access + refresh token pair. Role embedded in JWT claims. Token lifetime configurable via env.</div>
+          <div class="fr-validation"><strong>Validation:</strong> Active user, correct password, email unique constraint.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/employees/views.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-03</span><span class="fr-title">Leave Apply + Balance Check</span></div>
+          <div class="fr-desc">Validate leave type, available balance, no overlap with existing approved leaves, backdating limit, weekends excluded before creating LeaveRequest.</div>
+          <div class="fr-validation"><strong>Validation:</strong> balance ≥ days, no date overlap, within backdating policy, working days only.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/leaves/services.py:LeaveService.apply</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-04</span><span class="fr-title">Leave Approval (Idempotent)</span></div>
+          <div class="fr-desc">Single DB update prevents duplicate signals. Idempotency guard in ProcessLeaveApprovalTask checks already_notified before pushing notification.</div>
+          <div class="fr-validation"><strong>Validation:</strong> Requester is manager, leave is PENDING, signal fires exactly once.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>tasks/leave_tasks.py:ProcessLeaveApprovalTask</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-05</span><span class="fr-title">Comp-Off Workflow</span></div>
+          <div class="fr-desc">Employee requests CO for a worked day. Manager approval credits comp_off balance. Rejection does not credit. Double-approval blocked.</div>
+          <div class="fr-validation"><strong>Validation:</strong> worked_date in past, not a weekend, valid employee–manager relationship.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/leaves/services.py:CompOffService</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-06</span><span class="fr-title">Daily Attendance Log Creation</span></div>
+          <div class="fr-desc">Celery Beat task at 00:05 UTC creates ABSENT or ON_LEAVE log for every active employee. Status depends on approved leave coverage for the day.</div>
+          <div class="fr-validation"><strong>Validation:</strong> Idempotent — safe to run twice. No duplicate logs per employee per date.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>tasks/attendance_tasks.py:CreateDailyAttendanceLogsTask</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-07</span><span class="fr-title">Regularization (3-Attempt / 3-Day Window)</span></div>
+          <div class="fr-desc">Employee corrects missed check-out. Maximum 3 attempts per date. Request must be within 3 working days (configurable via AttendancePolicy).</div>
+          <div class="fr-validation"><strong>Validation:</strong> Past date, not weekend, not on approved leave, attempt_count &lt; 3, no simultaneous WFH for same date.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/attendance/services.py:RegularizationService</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-08</span><span class="fr-title">WFH with Lead Time Enforcement</span></div>
+          <div class="fr-desc">Employee applies WFH for list of dates (JSON). Min lead time enforced from AttendancePolicy.wfh_min_lead_days. Approval auto-creates/updates AttendanceLogs.</div>
+          <div class="fr-validation"><strong>Validation:</strong> Future dates, no weekends, min lead time, no overlap with pending regularization.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/attendance/services.py:WFHService</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-09</span><span class="fr-title">PL/LOP Penalty Calculation</span></div>
+          <div class="fr-desc">Daily scan (01:00 UTC) detects unresolved ABSENT logs past window. Deducts PL first then LOP (PLThenLOPStrategy). Skips dates with PENDING regularization or WFH.</div>
+          <div class="fr-validation"><strong>Validation:</strong> Payroll lock detection on last working day of month. OCP — new strategies via PenaltyStrategyFactory.register().</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/attendance/penalty_strategies.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-10</span><span class="fr-title">AI Intent Routing (20+ Intents)</span></div>
+          <div class="fr-desc">Router classifies user query to 20+ intents. Keyword match runs before embedding calls (performance optimization). Routes to correct LangGraph flow.</div>
+          <div class="fr-validation"><strong>Validation:</strong> Role-aware routing (manager sees approval intents, employee sees self-serve). Mid-flow policy questions handled without losing state.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>agents/router.py + intent_registry.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-11</span><span class="fr-title">Multi-Turn Leave Collection</span></div>
+          <div class="fr-desc">Stateful leave collection across conversation turns. Handles partial info (date missing, type ambiguous), mid-flow policy questions, and multi-type leave in one session.</div>
+          <div class="fr-validation"><strong>Validation:</strong> State preserved in AgentState.leave_items + collection_stage. Confirmation step before submission.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>agents/nodes/leave_collector.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-12</span><span class="fr-title">RAG Policy Q&amp;A</span></div>
+          <div class="fr-desc">Policy questions answered via pgvector similarity search on chunked policy documents. Retrieved chunks injected into LLM context — answers grounded in source text.</div>
+          <div class="fr-validation"><strong>Validation:</strong> Never fabricate policy facts if tool_results absent. Source attribution in response.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>agents/nodes/rag_retrieval.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-13</span><span class="fr-title">Re-Notify Manager (×3 / 60-min cooldown)</span></div>
+          <div class="fr-desc">Employee re-sends reminder to manager on pending leave. Max 3 attempts. 60-min cooldown between attempts. Returns detailed status with next-available time.</div>
+          <div class="fr-validation"><strong>Validation:</strong> renotify_count ≥ 3 → limit_reached. Within cooldown → returns next_available_in_minutes.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/notifications/services.py:renotify_leave</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-14</span><span class="fr-title">Burnout Detection</span></div>
+          <div class="fr-desc">Daily scan at 02:00 UTC computes burnout score per employee from attendance patterns, overtime, leave history. Feeds into manager dashboard and chat agent.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>tasks/burnout_tasks.py + agents/nodes/burnout.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-15</span><span class="fr-title">Skill Roadmap AI Generation</span></div>
+          <div class="fr-desc">Mentor Q&amp;A conversation → AI generates structured DraftRoadmap → employee submits → manager approval → step-by-step tracking with evidence URLs.</div>
+          <div class="fr-validation"><strong>Validation:</strong> 8 skill categories auto-inferred. Status machine: PENDING_APPROVAL → IN_PROGRESS → PENDING_REVIEW → COMPLETED.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>mcp/tools/upskilling_tools.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-16</span><span class="fr-title">Anonymous Feedback + Sentiment</span></div>
+          <div class="fr-desc">Feedback submitted without PII. Async AI extracts: sentiment_score (−1 to 1), emotion, topics, risk_flags (burnout/attrition/morale_decline/toxic_culture). Aggregated into OrgInsightSnapshot for HR.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/feedback/models.py + tasks/feedback_tasks.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-17</span><span class="fr-title">WebSocket Real-Time Notifications</span></div>
+          <div class="fr-desc">JWT-authenticated WS connection. Flushes ≤20 unread on connect. Incremental push on approval events. seenNotifIds ref prevents duplicate bubbles on reconnect.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/notifications/consumers.py + config/asgi.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-18</span><span class="fr-title">Chat Memory (Multi-Turn Context)</span></div>
+          <div class="fr-desc">Redis turn cache at chat:turns:{session_id}. Tool result pinning at chat:tools:{session_id}. Entity log for pronoun resolution (focus_employee_id extracted async via Celery).</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/ai/memory.py + apps/ai/context.py</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-19</span><span class="fr-title">Multi-Queue Celery Processing</span></div>
+          <div class="fr-desc">Separate queues: leave, notifications, ai_heavy, analytics. Dedicated workers with different concurrency. RabbitMQ broker for durability — not Redis.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>config/celery.py + docker-compose.yml</div>
+        </div>
+
+        <div class="fr-card">
+          <div class="fr-header"><span class="fr-num">FR-20</span><span class="fr-title">Social Feed</span></div>
+          <div class="fr-desc">Employees post text + optional kudos + images. Likes with unique constraint (post + employee). Threaded comments. Paginated feed with liked_by_me annotation.</div>
+          <div class="fr-code"><i data-lucide="file-code" style="width:12px;height:12px;"></i>apps/feed/models.py + apps/feed/views.py</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 7: Data Model -->
+    <section id="datamodel" class="section s7">
+      <div class="section-header">
+        <span class="section-num">07</span>
+        <h2 class="section-title">Data Model</h2>
+      </div>
+
+      <h3>Employee Domain</h3>
+      <div class="entity-grid" style="margin-bottom:24px;">
+        <div class="entity-card">
+          <div class="entity-header">
+            <div>
+              <span class="entity-domain" style="background:var(--blue-dim);color:var(--blue);">AUTH</span>
+              <div class="entity-name">User</div>
+              <div class="entity-file">apps/employees/models.py</div>
+            </div>
+          </div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">email</span><span class="field-type">unique, PK-like</span></div>
+            <div class="entity-field"><span class="field-name">phone</span><span class="field-type">required</span></div>
+            <div class="entity-field"><span class="field-name">is_active</span><span class="field-type">bool</span></div>
+            <div class="entity-field"><span class="field-name">extends</span><span class="field-rel">AbstractBaseUser</span></div>
+          </div>
+        </div>
+        <div class="entity-card">
+          <div class="entity-header">
+            <div>
+              <span class="entity-domain" style="background:var(--blue-dim);color:var(--blue);">ORG</span>
+              <div class="entity-name">Employee</div>
+              <div class="entity-file">apps/employees/models.py</div>
+            </div>
+          </div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">user</span><span class="field-rel">FK → User (1:1)</span></div>
+            <div class="entity-field"><span class="field-name">department</span><span class="field-rel">FK → Department</span></div>
+            <div class="entity-field"><span class="field-name">manager</span><span class="field-rel">FK → self (nullable)</span></div>
+            <div class="entity-field"><span class="field-name">role</span><span class="field-type">employee/manager/hr/cfo/admin</span></div>
+            <div class="entity-field"><span class="field-name">title</span><span class="field-type">varchar</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Leave Domain</h3>
+      <div class="entity-grid" style="margin-bottom:24px;">
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--green-dim);color:var(--green);">LEAVE</span>
+            <div class="entity-name">LeaveBalance</div>
+            <div class="entity-file">apps/leaves/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">employee</span><span class="field-rel">FK → Employee</span></div>
+            <div class="entity-field"><span class="field-name">cl / pl / sl</span><span class="field-type">float</span></div>
+            <div class="entity-field"><span class="field-name">comp_off</span><span class="field-type">float</span></div>
+          </div>
+        </div>
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--green-dim);color:var(--green);">LEAVE</span>
+            <div class="entity-name">LeaveRequest</div>
+            <div class="entity-file">apps/leaves/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">employee</span><span class="field-rel">FK → Employee</span></div>
+            <div class="entity-field"><span class="field-name">approver</span><span class="field-rel">FK → Employee</span></div>
+            <div class="entity-field"><span class="field-name">leave_type</span><span class="field-type">CL/PL/SL/CO/LOP</span></div>
+            <div class="entity-field"><span class="field-name">start_date / end_date</span><span class="field-type">date</span></div>
+            <div class="entity-field"><span class="field-name">half_day</span><span class="field-type">bool</span></div>
+            <div class="entity-field"><span class="field-name">status</span><span class="field-type">PENDING/APPROVED/REJECTED/CANCELLED</span></div>
+            <div class="entity-field"><span class="field-name">balance_deducted</span><span class="field-type">bool (idempotency)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Attendance Domain</h3>
+      <div class="entity-grid" style="margin-bottom:24px;">
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--yellow-dim);color:var(--yellow);">ATTEND</span>
+            <div class="entity-name">AttendanceLog</div>
+            <div class="entity-file">apps/attendance/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">employee</span><span class="field-rel">FK → Employee</span></div>
+            <div class="entity-field"><span class="field-name">date</span><span class="field-type">date</span></div>
+            <div class="entity-field"><span class="field-name">check_in / check_out</span><span class="field-type">time (nullable)</span></div>
+            <div class="entity-field"><span class="field-name">status</span><span class="field-type">PRESENT/ABSENT/WFH/ON_LEAVE/REGULARIZED/WFH_PENDING</span></div>
+            <div class="entity-field"><span class="field-name">regularization</span><span class="field-rel">FK → RegularizationRequest</span></div>
+          </div>
+        </div>
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--yellow-dim);color:var(--yellow);">ATTEND</span>
+            <div class="entity-name">AttendancePenalty</div>
+            <div class="entity-file">apps/attendance/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">employee</span><span class="field-rel">FK → Employee</span></div>
+            <div class="entity-field"><span class="field-name">date</span><span class="field-type">date</span></div>
+            <div class="entity-field"><span class="field-name">penalty_type</span><span class="field-type">PL / LOP</span></div>
+            <div class="entity-field"><span class="field-name">days</span><span class="field-type">decimal</span></div>
+            <div class="entity-field"><span class="field-name">payroll_locked</span><span class="field-type">bool</span></div>
+            <div class="entity-field"><span class="field-name">reversed</span><span class="field-type">bool</span></div>
+          </div>
+        </div>
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--yellow-dim);color:var(--yellow);">ATTEND</span>
+            <div class="entity-name">AttendancePolicy</div>
+            <div class="entity-file">apps/attendance/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">window_days</span><span class="field-type">int (regularization window)</span></div>
+            <div class="entity-field"><span class="field-name">wfh_min_lead_days</span><span class="field-type">int</span></div>
+            <div class="entity-field"><span class="field-name">penalty_order</span><span class="field-type">PL_THEN_LOP / LOP_ONLY</span></div>
+            <div class="entity-field"><span class="field-name">is_active</span><span class="field-type">bool (only one active)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>AI / Chat Domain</h3>
+      <div class="entity-grid" style="margin-bottom:24px;">
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--cyan-dim);color:var(--cyan);">AI</span>
+            <div class="entity-name">ChatSession</div>
+            <div class="entity-file">apps/ai/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">user</span><span class="field-rel">FK → User</span></div>
+            <div class="entity-field"><span class="field-name">session_id</span><span class="field-type">UUID</span></div>
+            <div class="entity-field"><span class="field-name">title</span><span class="field-type">varchar</span></div>
+          </div>
+        </div>
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--cyan-dim);color:var(--cyan);">AI</span>
+            <div class="entity-name">ChatSummary</div>
+            <div class="entity-file">apps/ai/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">session</span><span class="field-rel">FK → ChatSession</span></div>
+            <div class="entity-field"><span class="field-name">summary_text</span><span class="field-type">text</span></div>
+            <div class="entity-field"><span class="field-name">embedding</span><span class="field-type">pgvector (1536-dim)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Upskilling + Feedback</h3>
+      <div class="entity-grid" style="margin-bottom:24px;">
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--purple-dim);color:var(--purple);">SKILL</span>
+            <div class="entity-name">SkillRoadmap</div>
+            <div class="entity-file">apps/upskilling/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">employee / manager</span><span class="field-rel">FK → Employee</span></div>
+            <div class="entity-field"><span class="field-name">category</span><span class="field-type">AI&amp;Data / SoftEng / Cloud&amp;DevOps / Supply Chain / Leadership / Finance / Sales&amp;Mkt / Other</span></div>
+            <div class="entity-field"><span class="field-name">status</span><span class="field-type">PENDING_APPROVAL → IN_PROGRESS → PENDING_REVIEW → COMPLETED</span></div>
+          </div>
+        </div>
+        <div class="entity-card">
+          <div class="entity-header"><div>
+            <span class="entity-domain" style="background:var(--pink-dim);color:var(--pink);">FEEDBACK</span>
+            <div class="entity-name">AnonymousFeedback</div>
+            <div class="entity-file">apps/feedback/models.py</div>
+          </div></div>
+          <div class="entity-fields">
+            <div class="entity-field"><span class="field-name">text</span><span class="field-type">text (no PII)</span></div>
+            <div class="entity-field"><span class="field-name">sentiment_score</span><span class="field-type">float −1 to 1</span></div>
+            <div class="entity-field"><span class="field-name">emotion</span><span class="field-type">frustration/anxiety/satisfaction/neutral</span></div>
+            <div class="entity-field"><span class="field-name">risk_flags</span><span class="field-type">JSON: burnout/attrition/morale_decline/toxic_culture</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: Edge Cases -->
+    <section id="edgecases" class="section s8">
+      <div class="section-header">
+        <span class="section-num">08</span>
+        <h2 class="section-title">Edge Cases</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Case</th><th>Handling</th><th>Location</th></tr></thead>
+          <tbody>
+            <tr><td>Duplicate leave approval signal (2× save)</td><td>Idempotency guard in ProcessLeaveApprovalTask checks <code>already_notified</code> before push</td><td><code>tasks/leave_tasks.py</code></td></tr>
+            <tr><td>Re-notify within cooldown</td><td>Returns <code>{status: "cooldown", next_available_in_minutes}</code></td><td><code>notifications/services.py</code></td></tr>
+            <tr><td>Re-notify limit exceeded (×3)</td><td>Returns <code>{status: "limit_reached"}</code></td><td><code>notifications/services.py</code></td></tr>
+            <tr><td>WFH + regularization same date</td><td>Blocked at service layer — cannot coexist</td><td><code>attendance/services.py</code></td></tr>
+            <tr><td>Regularization after payroll lock</td><td><code>payroll_locked=True</code> flagged; PL credit applied; LOP flagged next cycle</td><td><code>attendance/services.py</code></td></tr>
+            <tr><td>Max regularization attempts (3)</td><td>4th attempt blocked with error response</td><td><code>attendance/services.py</code></td></tr>
+            <tr><td>WFH for weekend date</td><td>Rejected at service layer</td><td><code>attendance/services.py</code></td></tr>
+            <tr><td>Regularization for future date</td><td>Rejected — must be past date</td><td><code>attendance/services.py</code></td></tr>
+            <tr><td>Leave overlap with approved leave</td><td>Blocked with overlap detail in error</td><td><code>leaves/services.py</code></td></tr>
+            <tr><td>Insufficient leave balance</td><td>Blocked with available balance in error response</td><td><code>leaves/services.py</code></td></tr>
+            <tr><td>LLM fabricating leave submission</td><td>Rule in llm_generate.py: if <code>tool_results.create_leave_request</code> absent → report error, ask retry</td><td><code>agents/nodes/llm_generate.py</code></td></tr>
+            <tr><td>Manager approval without leave_id in query</td><td>mcp_tools skips action tools, falls back to listing only (<code>get_pending_approvals</code>)</td><td><code>agents/nodes/mcp_tools.py</code></td></tr>
+            <tr><td>WS reconnect duplicate notifications</td><td><code>seenNotifIds</code> ref prevents duplicate bubble render</td><td><code>ChatPage.tsx</code></td></tr>
+            <tr><td>Bell counter double-count on reconnect</td><td>Pre-populate <code>seenNotifIds</code> from REST load before WS connect</td><td><code>ChatPage.tsx</code></td></tr>
+            <tr><td>Half-day leave (0.5 days)</td><td>Correctly counted as 0.5, not rounded</td><td><code>leaves/services.py</code></td></tr>
+            <tr><td>Thursday → Monday = 3 working days</td><td>Weekends excluded from working day calculation</td><td><code>leaves/services.py</code></td></tr>
+            <tr><td>Celery task discovery (autodiscover)</td><td>Use <code>app.conf.imports</code> explicitly — autodiscover misses top-level tasks/ package</td><td><code>config/celery.py</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 9: NFR -->
+    <section id="nfr" class="section s9">
+      <div class="section-header">
+        <span class="section-num">09</span>
+        <h2 class="section-title">Non-Functional Requirements</h2>
+      </div>
+      <div class="nfr-grid">
+        <div class="nfr-card">
+          <div class="nfr-header">
+            <div class="nfr-icon" style="background:var(--blue-dim);color:var(--blue);">
+              <i data-lucide="zap" style="width:18px;height:18px;"></i>
+            </div>
+            <span class="nfr-title">Performance</span>
+          </div>
+          <ul class="nfr-items">
+            <li>Keyword match before embedding in router — latency reduced from 10.4s baseline</li>
+            <li>Pre-computed reports at 02:20 UTC — no on-demand aggregation</li>
+            <li>All Redis keys via <code>CacheKeys.*</code> — no inline key strings</li>
+            <li>ai_heavy queue concurrency=2 (LLM-bound — avoids OOM)</li>
+            <li>Separate Gunicorn (HTTP) and Daphne (WS) processes</li>
+          </ul>
+        </div>
+        <div class="nfr-card">
+          <div class="nfr-header">
+            <div class="nfr-icon" style="background:var(--red-dim);color:var(--red);">
+              <i data-lucide="shield" style="width:18px;height:18px;"></i>
+            </div>
+            <span class="nfr-title">Security</span>
+          </div>
+          <ul class="nfr-items">
+            <li>JWT with configurable lifetime via <code>JWT_ACCESS_TOKEN_LIFETIME_MINUTES</code></li>
+            <li>RBAC permission class on every view (IsEmployee / IsManager / IsHR / IsCFO)</li>
+            <li>MCP RBAC (<code>mcp/rbac.py</code>) as second layer on all tool invocations</li>
+            <li>WS auth via JWT query param (⚠️ risk: use Sec-WebSocket-Protocol in prod)</li>
+            <li>Anonymous feedback: no PII stored by design</li>
+          </ul>
+        </div>
+        <div class="nfr-card">
+          <div class="nfr-header">
+            <div class="nfr-icon" style="background:var(--green-dim);color:var(--green);">
+              <i data-lucide="layers" style="width:18px;height:18px;"></i>
+            </div>
+            <span class="nfr-title">Scalability</span>
+          </div>
+          <ul class="nfr-items">
+            <li>Celery multi-queue + horizontal worker scaling per queue type</li>
+            <li>RabbitMQ broker (not Redis) — durable message delivery</li>
+            <li>pgvector for embedding-native search — no external vector DB</li>
+            <li>Redis 512MB LRU policy — cache eviction under memory pressure</li>
+            <li>Named bind-mount volumes — data survives <code>docker volume prune</code></li>
+          </ul>
+        </div>
+        <div class="nfr-card">
+          <div class="nfr-header">
+            <div class="nfr-icon" style="background:var(--cyan-dim);color:var(--cyan);">
+              <i data-lucide="activity" style="width:18px;height:18px;"></i>
+            </div>
+            <span class="nfr-title">Observability</span>
+          </div>
+          <ul class="nfr-items">
+            <li>BaseHRMSTask catches all exceptions + <code>logger.exception()</code> — no silent failures</li>
+            <li>Agent graph emits per-node timing logs for performance profiling</li>
+            <li><code>[MEMORY]</code> prefix with ANSI green for chat context debug logs</li>
+            <li>Celery Beat schedule visible in Django admin (DatabaseScheduler)</li>
+            <li>Consistent error format: <code>{error, code: SNAKE_CASE, details: {}}</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 10: Celery Beat -->
+    <section id="celery" class="section s10">
+      <div class="section-header">
+        <span class="section-num">10</span>
+        <h2 class="section-title">Celery Beat Schedule</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Task</th><th>Schedule</th><th>Queue</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>create_daily_attendance_logs</td><td>00:05 UTC daily</td><td>default</td><td>Create ABSENT / ON_LEAVE logs for all active employees</td></tr>
+            <tr><td>scan_attendance_anomalies</td><td>01:00 UTC daily</td><td>default</td><td>Detect overdue ABSENT logs → apply PL/LOP penalties</td></tr>
+            <tr><td>burnout_scan_daily</td><td>02:00 UTC daily</td><td>ai_heavy</td><td>Compute burnout scores from attendance + leave patterns</td></tr>
+            <tr><td>precompute_employee_reports_daily</td><td>02:20 UTC daily</td><td>analytics</td><td>Pre-cache report data for dashboard fast-load</td></tr>
+            <tr><td>leave_forecast_daily</td><td>03:00 UTC daily</td><td>analytics</td><td>Predict upcoming leave demand for workforce planning</td></tr>
+            <tr><td>notify_prepayroll_penalties</td><td>25th @ 09:00 UTC</td><td>notifications</td><td>Alert HR: employees with active penalties before payroll lock</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 11: Traceability -->
+    <section id="traceability" class="section s11">
+      <div class="section-header">
+        <span class="section-num">11</span>
+        <h2 class="section-title">Traceability Matrix</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Requirement</th><th>Code Location</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>FR-01: Multi-provider LLM</td><td><code>core/llm/factory.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-02: JWT Auth</td><td><code>apps/employees/views.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-03: Leave apply + balance check</td><td><code>apps/leaves/services.py:LeaveService.apply</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-04: Leave approval (idempotent)</td><td><code>apps/leaves/services.py, tasks/leave_tasks.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-05: Comp-off workflow</td><td><code>apps/leaves/services.py:CompOffService</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-06: Daily attendance log creation</td><td><code>tasks/attendance_tasks.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-07: Regularization (3-attempt)</td><td><code>apps/attendance/services.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-08: WFH with lead time</td><td><code>apps/attendance/services.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-09: PL/LOP penalty calculation</td><td><code>apps/attendance/penalty_strategies.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-10: AI intent routing (20+ intents)</td><td><code>agents/router.py, intent_registry.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-11: Multi-turn leave collection</td><td><code>agents/nodes/leave_collector.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-12: RAG policy Q&amp;A</td><td><code>agents/nodes/rag_retrieval.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-13: Re-notify (×3 / 60-min)</td><td><code>apps/notifications/services.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-14: Burnout detection</td><td><code>tasks/burnout_tasks.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-15: Skill roadmap AI generation</td><td><code>apps/upskilling/services.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-16: Anonymous feedback + sentiment</td><td><code>apps/feedback/models.py, tasks/feedback_tasks.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-17: WebSocket notifications</td><td><code>apps/notifications/consumers.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-18: Chat memory (multi-turn)</td><td><code>apps/ai/memory.py, context.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-19: Multi-queue Celery</td><td><code>config/celery.py, docker-compose.yml</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>FR-20: Social feed</td><td><code>apps/feed/models.py, views.py</code></td><td><span class="badge badge-green">Implemented</span></td></tr>
+            <tr><td>Performance reviews (full workflow)</td><td><code>apps/performance/</code></td><td><span class="badge badge-yellow">Partial</span></td></tr>
+            <tr><td>Payroll calculation logic</td><td><code>apps/payroll/</code></td><td><span class="badge badge-yellow">Partial</span></td></tr>
+            <tr><td>Email / Slack delivery</td><td><code>core/notifications/handlers/</code></td><td><span class="badge badge-yellow">Partial</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 12: Gaps -->
+    <section id="gaps" class="section s12">
+      <div class="section-header">
+        <span class="section-num">12</span>
+        <h2 class="section-title">Gaps &amp; Risks</h2>
+      </div>
+      <div class="gap-grid">
+        <div class="gap-card missing">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span class="badge badge-red">Missing</span>
+            <span class="gap-title" style="margin:0;">Missing Features</span>
+          </div>
+          <ul class="gap-items">
+            <li>Performance reviews: models + tasks exist, no agent intents wired → dead code path</li>
+            <li>Payroll: PayrollSlip stores gross/net, no calculation logic → Phase 6 blocker</li>
+            <li>Email/Slack: handlers registered, integration completeness unknown — may silently fail outside in-app WS</li>
+            <li>No automated test suite — only session-tested edge cases documented in CLAUDE.md</li>
+          </ul>
+        </div>
+        <div class="gap-card debt">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span class="badge badge-yellow">Debt</span>
+            <span class="gap-title" style="margin:0;">Technical Debt</span>
+          </div>
+          <ul class="gap-items">
+            <li><code>ChatPage.tsx</code> at ~104KB — single file, needs component extraction</li>
+            <li><code>Dashboard.tsx</code> at ~100KB — same issue</li>
+            <li><code>agents/nodes/mcp_tools.py</code> at 61KB — 50+ tools in one file, needs domain split</li>
+            <li><code>apps/employees/services.py</code> at ~42KB — likely SRP violation</li>
+            <li>pgvector index strategy not visible — IVFFlat/HNSW config needed at scale</li>
+          </ul>
+        </div>
+        <div class="gap-card risk">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span class="badge" style="background:var(--orange-dim);color:var(--orange);border-color:rgba(249,115,22,0.25);">Risk</span>
+            <span class="gap-title" style="margin:0;">Security &amp; Operational Risks</span>
+          </div>
+          <ul class="gap-items">
+            <li>WS auth via <code>?token=</code> query param exposes JWT in server access logs — use Sec-WebSocket-Protocol header in prod</li>
+            <li>LLM_PROVIDER=anthropic swap test (FR-1) not verifiable without running agents end-to-end</li>
+            <li>Payroll lock + cross-month penalty reversal logic has no test coverage visible</li>
+            <li>Homebrew RabbitMQ on localhost:5672 conflicts with Docker binding — <code>brew services stop rabbitmq</code> required in local dev</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /content -->
+</main>
+
+<button id="back-top" title="Back to top">
+  <i data-lucide="arrow-up" style="width:18px;height:18px;"></i>
+</button>
+
+<script>
+  // Init icons
+  lucide.createIcons();
+
+  // Progress bar
+  const progress = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+    progress.style.width = pct + '%';
+  });
+
+  // Back to top
+  const btn = document.getElementById('back-top');
+  window.addEventListener('scroll', () => {
+    btn.classList.toggle('visible', window.scrollY > 400);
+  });
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+  // Active sidebar link
+  const sections = document.querySelectorAll('.section');
+  const navLinks = document.querySelectorAll('#sidebar a');
+
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const id = entry.target.id;
+        const active = document.querySelector(`#sidebar a[href="#${id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

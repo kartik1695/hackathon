@@ -10,6 +10,18 @@ def Csv():
     return _cast
 
 
+def FloatOrNone():
+    def _cast(value):
+        if value is None:
+            return None
+        s = str(value).strip()
+        if not s or s.lower() == "null":
+            return None
+        return float(s)
+
+    return _cast
+
+
 def config(key: str, default=None, cast=None):
     val = os.environ.get(key)
     if val is None:
@@ -218,6 +230,15 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 INTERNAL_API_TOKEN = config("INTERNAL_API_TOKEN", default="")
 
 ALLOW_DIRECTORY_PERSONAL_DETAILS = config("ALLOW_DIRECTORY_PERSONAL_DETAILS", default=True, cast=bool)
+
+OFFICE_GEOFENCE_ENABLED = config("OFFICE_GEOFENCE_ENABLED", default=False, cast=bool)
+OFFICE_GEOFENCE_CENTER_LAT = config(
+    "OFFICE_GEOFENCE_CENTER_LAT", default="", cast=FloatOrNone()
+)
+OFFICE_GEOFENCE_CENTER_LON = config(
+    "OFFICE_GEOFENCE_CENTER_LON", default="", cast=FloatOrNone()
+)
+OFFICE_GEOFENCE_RADIUS_M = config("OFFICE_GEOFENCE_RADIUS_M", default=250, cast=int)
 
 LOGGING = {
     "version": 1,

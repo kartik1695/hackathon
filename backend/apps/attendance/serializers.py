@@ -15,12 +15,39 @@ from .models import (
 class AttendanceLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AttendanceLog
-        fields = ("id", "employee", "date", "check_in", "check_out", "status", "created_at")
+        fields = (
+            "id",
+            "employee",
+            "date",
+            "check_in",
+            "check_out",
+            "check_in_latitude",
+            "check_in_longitude",
+            "check_in_accuracy_m",
+            "check_in_distance_m",
+            "check_in_geofence_ok",
+            "check_out_latitude",
+            "check_out_longitude",
+            "check_out_accuracy_m",
+            "check_out_distance_m",
+            "check_out_geofence_ok",
+            "status",
+            "created_at",
+        )
 
 
 class AttendanceCheckInSerializer(serializers.Serializer):
     date = serializers.DateField()
     status = serializers.ChoiceField(choices=AttendanceLog.STATUS_CHOICES, default=AttendanceLog.STATUS_PRESENT)
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
+    accuracy_m = serializers.IntegerField(required=False, allow_null=True)
+
+
+class AttendanceCheckOutSerializer(serializers.Serializer):
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
+    accuracy_m = serializers.IntegerField(required=False, allow_null=True)
 
 
 class AttendanceAnomalySerializer(serializers.ModelSerializer):

@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List
 
+from django.conf import settings
 from django.db import transaction
 
 from .models import (
@@ -29,6 +30,77 @@ from .repositories import (
 logger = logging.getLogger("hrms")
 
 _MAX_REGULARIZATION_ATTEMPTS = 3
+
+
+class GeofenceError(ValueError):
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        self.code = code
+
+
+def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> int:
+    import math
+
+    r = 6371000.0
+    p1 = math.radians(lat1)
+    p2 = math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return int(round(r * c))
+
+
+def _geofence_enforced() -> bool:
+    return bool(getattr(settings, "OFFICE_GEOFENCE_ENABLED", False))
+
+
+def _geofence_params() -> tuple[float | None, float | None, int]:
+    lat = getattr(settings, "OFFICE_GEOFENCE_CENTER_LAT", None)
+    lon = getattr(settings, "OFFICE_GEOFENCE_CENTER_LON", None)
+    radius_m = int(getattr(settings, "OFFICE_GEOFENCE_RADIUS_M", 250))
+    return lat, lon, radius_m
+
+
+def _validate_geofence(
+    *, latitude: float | None, longitude: float | None, accuracy_m: int | None
+) -> tuple[bool, int | None]:
+    if not _geofence_enforced():
+        return True, None
+
+    center_lat, center_lon, radius_m = _geofence_params()
+    if center_lat is None or center_lon is None:
+        logger.warning("geofence_not_configured")
+        raise GeofenceError(
+            "Office geofence is not configured on the server.",
+            "GEOFENCE_NOT_CONFIGURED",
+        )
+
+    if latitude is None or longitude is None:
+        logger.info("geofence_location_missing")
+        raise GeofenceError(
+            "Location permission is required to clock in/out from office.",
+            "LOCATION_REQUIRED",
+        )
+
+    distance_m = _haversine_m(
+        float(center_lat), float(center_lon), float(latitude), float(longitude)
+    )
+    buffer_m = min(100, max(0, int(accuracy_m or 0)))
+    allowed = distance_m <= (radius_m + buffer_m)
+    if not allowed:
+        logger.info(
+            "geofence_denied distance_m=%s radius_m=%s buffer_m=%s",
+            distance_m,
+            radius_m,
+            buffer_m,
+        )
+        raise GeofenceError(
+            f"Outside office geofence (distance {distance_m}m, allowed {radius_m}m).",
+            "GEOFENCE_DENIED",
+        )
+    return True, distance_m
 
 
 def _working_days_between(start: date, end: date) -> int:
@@ -77,26 +149,87 @@ class AttendanceService:
         self.write_repo = write_repo or AttendanceLogWriteRepository()
 
     @transaction.atomic
-    def check_in(self, date, status: str) -> AttendanceLog:
+    def check_in(
+        self,
+        date,
+        status: str,
+        *,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        accuracy_m: int | None = None,
+    ) -> AttendanceLog:
         existing = self.read_repo.get_by_employee_and_date(self.employee.id, date)
         now = datetime.now(tz=timezone.utc)
+        _, distance_m = _validate_geofence(
+            latitude=latitude, longitude=longitude, accuracy_m=accuracy_m
+        )
+
         if existing:
-            log = self.write_repo.update(existing, check_in=existing.check_in or now, status=status)
+            updates: dict = {"status": status}
+            if not existing.check_in:
+                updates["check_in"] = now
+                updates["check_in_latitude"] = latitude
+                updates["check_in_longitude"] = longitude
+                updates["check_in_accuracy_m"] = accuracy_m
+                updates["check_in_distance_m"] = distance_m
+                updates["check_in_geofence_ok"] = True if _geofence_enforced() else None
+            log = self.write_repo.update(existing, **updates)
         else:
-            log = self.write_repo.create(employee=self.employee, date=date, check_in=now, status=status)
-        logger.info("Attendance check-in employee_id=%s date=%s", self.employee.employee_id, date)
+            log = self.write_repo.create(
+                employee=self.employee,
+                date=date,
+                check_in=now,
+                status=status,
+                check_in_latitude=latitude,
+                check_in_longitude=longitude,
+                check_in_accuracy_m=accuracy_m,
+                check_in_distance_m=distance_m,
+                check_in_geofence_ok=True if _geofence_enforced() else None,
+            )
+        logger.info(
+            "Attendance check-in employee_id=%s date=%s geofence_enforced=%s distance_m=%s",
+            self.employee.employee_id,
+            date,
+            _geofence_enforced(),
+            distance_m,
+        )
         return log
 
     @transaction.atomic
-    def check_out(self, date) -> AttendanceLog:
+    def check_out(
+        self,
+        date,
+        *,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        accuracy_m: int | None = None,
+    ) -> AttendanceLog:
         existing = self.read_repo.get_by_employee_and_date(self.employee.id, date)
         if not existing or not existing.check_in:
             raise ValueError("Cannot check out without checking in first.")
         if existing.check_out:
             raise ValueError("Already checked out for today.")
+
+        _, distance_m = _validate_geofence(
+            latitude=latitude, longitude=longitude, accuracy_m=accuracy_m
+        )
         now = datetime.now(tz=timezone.utc)
-        log = self.write_repo.update(existing, check_out=now)
-        logger.info("Attendance check-out employee_id=%s date=%s", self.employee.employee_id, date)
+        log = self.write_repo.update(
+            existing,
+            check_out=now,
+            check_out_latitude=latitude,
+            check_out_longitude=longitude,
+            check_out_accuracy_m=accuracy_m,
+            check_out_distance_m=distance_m,
+            check_out_geofence_ok=True if _geofence_enforced() else None,
+        )
+        logger.info(
+            "Attendance check-out employee_id=%s date=%s geofence_enforced=%s distance_m=%s",
+            self.employee.employee_id,
+            date,
+            _geofence_enforced(),
+            distance_m,
+        )
         return log
 
 

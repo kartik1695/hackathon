@@ -8,6 +8,7 @@ from .models import AttendanceLog
 
 from .serializers import (
     AttendanceCheckInSerializer,
+    AttendanceCheckOutSerializer,
     AttendanceLogSerializer,
     AttendancePenaltySerializer,
     AttendancePolicyCreateSerializer,
@@ -24,6 +25,7 @@ from .services import (
     AttendancePenaltyService,
     AttendancePolicyService,
     AttendanceService,
+    GeofenceError,
     RegularizationService,
     WFHService,
 )
@@ -42,10 +44,18 @@ class AttendanceCheckInView(APIView):
         serializer = AttendanceCheckInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         employee = request.user.employee
-        log = AttendanceService(employee).check_in(
-            serializer.validated_data["date"],
-            serializer.validated_data["status"],
-        )
+        try:
+            log = AttendanceService(employee).check_in(
+                serializer.validated_data["date"],
+                serializer.validated_data["status"],
+                latitude=serializer.validated_data.get("latitude"),
+                longitude=serializer.validated_data.get("longitude"),
+                accuracy_m=serializer.validated_data.get("accuracy_m"),
+            )
+        except GeofenceError as e:
+            return _error(str(e), code=getattr(e, "code", "GEOFENCE_ERROR"), http_status=403)
+        except ValueError as e:
+            return _error(str(e), code="CHECKIN_ERROR", http_status=400)
         return Response(AttendanceLogSerializer(log).data)
 
 
@@ -55,10 +65,19 @@ class AttendanceCheckOutView(APIView):
     def post(self, request):
         from datetime import date
         employee = request.user.employee
+        serializer = AttendanceCheckOutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         try:
-            log = AttendanceService(employee).check_out(date.today())
+            log = AttendanceService(employee).check_out(
+                date.today(),
+                latitude=serializer.validated_data.get("latitude"),
+                longitude=serializer.validated_data.get("longitude"),
+                accuracy_m=serializer.validated_data.get("accuracy_m"),
+            )
+        except GeofenceError as e:
+            return _error(str(e), code=getattr(e, "code", "GEOFENCE_ERROR"), http_status=403)
         except ValueError as e:
-            return Response({"error": str(e), "code": "CHECKOUT_ERROR"}, status=400)
+            return _error(str(e), code="CHECKOUT_ERROR", http_status=400)
         return Response(AttendanceLogSerializer(log).data)
 
 

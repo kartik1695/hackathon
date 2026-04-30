@@ -25,6 +25,16 @@ class AttendanceLog(models.Model):
     date = models.DateField()
     check_in = models.DateTimeField(null=True, blank=True)
     check_out = models.DateTimeField(null=True, blank=True)
+    check_in_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_in_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_in_accuracy_m = models.IntegerField(null=True, blank=True)
+    check_in_distance_m = models.IntegerField(null=True, blank=True)
+    check_in_geofence_ok = models.BooleanField(null=True, blank=True)
+    check_out_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_out_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_out_accuracy_m = models.IntegerField(null=True, blank=True)
+    check_out_distance_m = models.IntegerField(null=True, blank=True)
+    check_out_geofence_ok = models.BooleanField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PRESENT)
     # Set when regularization approved — links back for audit
     regularization_request = models.ForeignKey(

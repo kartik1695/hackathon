@@ -127,11 +127,26 @@ function StatusBadge({ status, small }: { status: string; small?: boolean }) {
 function fmt(t: string | null): string {
   if (!t) return "—";
   try {
-    return new Date(`1970-01-01T${t}`).toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
+    const raw = String(t).trim();
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+
+    const m = raw.match(/^(\d{2}:\d{2})(:\d{2})?$/);
+    if (m) {
+      return new Date(`1970-01-01T${raw}`).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+
+    return raw;
   } catch {
     return t;
   }
