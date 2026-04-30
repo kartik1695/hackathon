@@ -38,6 +38,8 @@ function navTargetFromNotif(n: NotificationItem): NavPage | undefined {
   if (m.regularization_id != null || m.wfh_id != null || m.penalty_id != null)
     return "attendance";
   if (m.roadmap_id != null || m.step_id != null) return "upskilling";
+  if (m.post_id != null) return "feed";
+  if (typeof m.type === "string" && m.type.startsWith("feed_")) return "feed";
   return undefined;
 }
 
@@ -47,6 +49,7 @@ const NAV_TABS: { id: NavPage; label: string; activeFor?: NavPage[] }[] = [
   { id: "employees",  label: "People",      activeFor: ["employees"] },
   { id: "attendance", label: "Attendance",  activeFor: ["attendance"] },
   { id: "leaves",     label: "Leave",       activeFor: ["leaves"] },
+  { id: "feed",       label: "Feed",        activeFor: ["feed"] },
   { id: "upskilling", label: "Upskilling",  activeFor: ["upskilling"] },
   { id: "feedback",   label: "Pulse",       activeFor: ["feedback"] },
   { id: "chat",       label: "AI Assistant", activeFor: ["chat"] },

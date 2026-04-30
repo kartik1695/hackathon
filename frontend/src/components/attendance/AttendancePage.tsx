@@ -142,7 +142,9 @@ async function apiFetch(token: string, path: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return null;
-  return res.json();
+  const text = await res.text();
+  if (!text) return null;
+  return JSON.parse(text);
 }
 
 async function apiPost(token: string, path: string, body?: unknown) {
@@ -154,7 +156,8 @@ async function apiPost(token: string, path: string, body?: unknown) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 function Card({

@@ -19,6 +19,7 @@ import ChatPage from "../../ChatPage";
 import UpskillPage from "../upskilling/UpskillPage";
 import FeedbackPage from "../feedback/FeedbackPage";
 import ReportsPage from "../reports/ReportsPage";
+import FeedPage from "../feed/FeedPage";
 
 type ThemeId =
   | "aurora_teal"
@@ -478,6 +479,13 @@ export default function AppShell() {
               )}
               {page === "employees" && (
                 <EmployeePage token={token} role={profile?.role ?? ""} />
+              )}
+              {page === "feed" && (
+                <FeedPage
+                  token={token}
+                  role={profile?.role ?? ""}
+                  onNav={setPage}
+                />
               )}
               {page === "upskilling" && (
                 <UpskillPage token={token} role={profile?.role ?? ""} />

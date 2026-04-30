@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/rag/", include("apps.rag.urls")),
     path("api/upskilling/", include("apps.upskilling.urls")),
     path("api/feedback/", include("apps.feedback.urls")),
+    path("api/feed/", include("apps.feed.urls")),
 ]
 
 if settings.DEBUG:

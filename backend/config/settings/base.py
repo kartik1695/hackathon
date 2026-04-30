@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "apps.rag",
     "apps.upskilling",
     "apps.feedback",
+    "apps.feed",
 ]
 
 MIDDLEWARE = [
