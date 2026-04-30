@@ -2,13 +2,7 @@ import React, { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "./api";
 import { saveTokens } from "./auth";
-
-const FEATURES = [
-  { label: "Smart Leave", desc: "AI-powered approvals" },
-  { label: "Attendance", desc: "Auto-regularization" },
-  { label: "AI Assistant", desc: "Chat with HR data" },
-  { label: "Analytics", desc: "People insights" },
-];
+import { LoginIllustrationPanel } from "./LoginIllustration";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -35,14 +29,19 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex relative overflow-hidden"
       style={{
         background:
           "linear-gradient(315deg,hsla(214,81%,86%,1) 0%,hsla(217,57%,93%,1) 47%,hsla(218,60%,92%,1) 100%)",
       }}
     >
+      {/* illustration — dead-centre watermark */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-100 -translate-x-[60px]">
+        <LoginIllustrationPanel mode="watermark" />
+      </div>
+
       {/* ── Left panel ───────────────────────────────────────────────────────── */}
-      <div className="hidden lg:flex flex-col justify-between w-[55%] px-16 py-14">
+      <div className="hidden lg:flex flex-col justify-between w-[55%] pl-24 pr-8 py-14 relative z-10">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div
@@ -128,43 +127,6 @@ export default function LoginPage() {
               conversational AI. No forms, no friction.
             </p>
           </div>
-
-          {/* Feature grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {FEATURES.map((f, i) => (
-              <div
-                key={f.label}
-                style={{
-                  padding: "16px",
-                  borderRadius: 16,
-                  background: i === 0 ? "#1e3a8a" : "rgba(255,255,255,0.55)",
-                  backdropFilter: i !== 0 ? "blur(20px)" : undefined,
-                  WebkitBackdropFilter: i !== 0 ? "blur(20px)" : undefined,
-                  border: i !== 0 ? "1px solid rgba(255,255,255,0.6)" : "none",
-                  boxShadow: "0 2px 12px rgba(37,99,235,0.06)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    marginBottom: 3,
-                    color: i === 0 ? "#fff" : "#0c1a3a",
-                  }}
-                >
-                  {f.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11.5,
-                    color: i === 0 ? "rgba(255,255,255,0.55)" : "#64748b",
-                  }}
-                >
-                  {f.desc}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Stats */}
@@ -194,7 +156,7 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right panel — login form ──────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 items-center justify-center px-8 py-12">
+      <div className="flex flex-col flex-1 items-center justify-center px-8 py-12 relative z-10">
         {/* Mobile logo */}
         <div className="flex items-center gap-2 mb-10 lg:hidden">
           <div

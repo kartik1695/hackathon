@@ -1,0 +1,361 @@
+/* Left illustration panel */
+.he-login-left {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem;
+  background: oklch(0.95 0.018 76);
+}
+
+.he-login-watermark {
+  position: relative;
+  width: 450px;
+  height: 450px;
+  display: grid;
+  place-items: center;
+}
+
+.he-login-left::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 80% 90% at 50% 50%,
+    oklch(0.92 0.065 78 / 0.85) 0%,
+    oklch(0.965 0.025 76 / 0.55) 45%,
+    oklch(0.97 0.01 80 / 0.1) 80%
+  );
+}
+
+.he-login-back {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  font-family: var(--font-sans);
+  font-size: 0.77rem;
+  font-weight: 600;
+  color: oklch(0.44 0.03 252);
+  background: oklch(0.99 0.006 80);
+  border: 1px solid oklch(0.85 0.04 76);
+  border-radius: 0.55rem;
+  padding: 0.36rem 0.72rem;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.he-login-back:hover {
+  background: oklch(0.97 0.012 78);
+  border-color: oklch(0.78 0.07 68);
+}
+
+/* Illustration hub */
+.he-login-illus {
+  position: relative;
+  z-index: 1;
+  width: 370px;
+  height: 370px;
+  flex-shrink: 0;
+  animation: he-illus-float 9s ease-in-out infinite;
+}
+
+/* Orbital dashed rings */
+.he-login-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  border: 1.5px dashed oklch(0.6 0.13 250 / 0.4);
+  pointer-events: none;
+}
+
+.he-login-ring-in {
+  width: 172px;
+  height: 152px;
+  animation: he-ring-spin 28s linear infinite;
+}
+
+.he-login-ring-out {
+  width: 308px;
+  height: 292px;
+  animation: he-ring-spin-reverse 34s linear infinite;
+}
+
+/* Icon badges */
+.he-li-badge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  background: oklch(0.97 0.025 240);
+  border: 1px solid oklch(0.78 0.08 240);
+  border-radius: 0.65rem;
+  padding: 0.42rem 0.7rem;
+  box-shadow: 0 4px 16px -6px oklch(0.4 0.1 240 / 0.3);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: oklch(0.28 0.08 250);
+  white-space: nowrap;
+  animation:
+    he-badge-fade 0.35s ease-out both,
+    he-badge-glow 5.5s ease-in-out infinite;
+}
+
+.he-li-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+/* Badge positions: corners + edge midpoints */
+.he-li-tl {
+  top: 10px;
+  left: 4px;
+}
+
+.he-li-tc {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.he-li-tr {
+  top: 10px;
+  right: 4px;
+}
+
+.he-li-ml {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.he-li-mr {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.he-li-bl {
+  bottom: 10px;
+  left: 4px;
+}
+
+.he-li-bc {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.he-li-br {
+  bottom: 10px;
+  right: 4px;
+}
+
+/* Staggered badge in */
+.he-li-tl {
+  animation-delay: 0.06s;
+}
+
+.he-li-tc {
+  animation-delay: 0.1s;
+}
+
+.he-li-tr {
+  animation-delay: 0.08s;
+}
+
+.he-li-ml {
+  animation-delay: 0.15s;
+}
+
+.he-li-mr {
+  animation-delay: 0.13s;
+}
+
+.he-li-bl {
+  animation-delay: 0.18s;
+}
+
+.he-li-bc {
+  animation-delay: 0.22s;
+}
+
+.he-li-br {
+  animation-delay: 0.2s;
+}
+
+@keyframes he-badge-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes he-illus-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes he-ring-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes he-ring-spin-reverse {
+  from {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+}
+
+@keyframes he-badge-glow {
+  0%,
+  100% {
+    box-shadow: 0 4px 16px -6px oklch(0.4 0.1 250 / 0.28);
+  }
+  50% {
+    box-shadow: 0 7px 20px -7px oklch(0.45 0.15 250 / 0.35);
+  }
+}
+
+/* Badge icon tone colors */
+.he-li-blue .he-li-icon {
+  color: oklch(0.45 0.18 255);
+}
+
+.he-li-mint .he-li-icon {
+  color: oklch(0.5 0.15 235);
+}
+
+.he-li-violet .he-li-icon {
+  color: oklch(0.48 0.18 270);
+}
+
+.he-li-amber .he-li-icon {
+  color: oklch(0.5 0.16 245);
+}
+
+.he-li-sky .he-li-icon {
+  color: oklch(0.52 0.14 230);
+}
+
+.he-li-rose .he-li-icon {
+  color: oklch(0.48 0.16 260);
+}
+
+.he-li-green .he-li-icon {
+  color: oklch(0.46 0.17 250);
+}
+
+.he-li-indigo .he-li-icon {
+  color: oklch(0.42 0.2 278);
+}
+
+/* Central brand cluster */
+.he-login-brand-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.28rem;
+  text-align: center;
+}
+
+.he-login-lm-wrap {
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  background: oklch(0.96 0.04 240);
+  border-radius: 1rem;
+  border: 1px solid oklch(0.78 0.1 245);
+  box-shadow: 0 6px 20px -10px oklch(0.38 0.12 250 / 0.4);
+  margin-bottom: 0.1rem;
+}
+
+.he-login-brand-center .he-logo-mark {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 0.48rem;
+}
+
+.he-login-brand-name {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: oklch(0.24 0.02 255);
+  line-height: 1;
+}
+
+.he-login-brand-sub {
+  margin: 0;
+  font-size: 0.7rem;
+  color: oklch(0.5 0.025 255);
+  letter-spacing: 0.01em;
+  max-width: 140px;
+  line-height: 1.4;
+}
+
+@media (max-width: 820px) {
+  .he-login-left {
+    padding: 3rem 2rem;
+    min-height: 320px;
+  }
+
+  .he-login-illus {
+    width: 280px;
+    height: 280px;
+  }
+
+  .he-login-ring-in {
+    width: 140px;
+    height: 124px;
+  }
+
+  .he-login-ring-out {
+    width: 256px;
+    height: 242px;
+  }
+
+  .he-login-brand-name {
+    font-size: 1.25rem;
+  }
+
+  .he-login-brand-sub {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .he-login-left {
+    display: none;
+  }
+}
